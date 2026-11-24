@@ -58,6 +58,11 @@
     <input type="text" id="title">
     <label>週の開始日（月曜日）</label>
     <input type="date" id="weekStart">
+    <label>日数</label>
+    <select id="dayCount">
+      <option value="7">7日間（1週間）</option>
+      <option value="5">5日間</option>
+    </select>
     <label>フッターの注意書き</label>
     <input type="text" id="footerNote">
     <label>ハッシュタグ</label>
@@ -79,7 +84,13 @@
 </div>
 <script>
 "use strict";
-const W = 1080, H = 1350;
+const W = 1080;
+let H = 1350;
+function setCanvasSize() {
+  H = state.days === 7 ? 1728 : 1350;
+  const cv = document.getElementById("cv");
+  if (cv) { cv.width = W; cv.height = H; }
+}
 const NAVY = "#043E80", NAVY2 = "#032a56", YELLOW = "#f5b500", INK = "#1c2733";
 const AM = "#e8541d", PM = "#7a4fd0", LINE = "#043E80";
 const WD = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
@@ -90,6 +101,7 @@ const SAMPLE = {
   title: "〇〇市の声を聴く",
   kicker: "",
   weekStart: "2026-11-23",
+  days: 7,
   footerNote: "※ 雨天などの事情により変更となる場合があります。詳細は各政策委員のSNSにて発信します。",
   hashtag: "#街頭活動 #国民民主党",
   members: [
@@ -142,7 +154,8 @@ function saveState() {
 function weekDates() {
   const base = new Date(state.weekStart + "T00:00:00");
   const out = [];
-  for (let i = 0; i < 5; i++) { const d = new Date(base); d.setDate(d.getDate() + i); out.push(d); }
+  const nd = state.days === 5 ? 5 : 7;
+  for (let i = 0; i < nd; i++) { const d = new Date(base); d.setDate(d.getDate() + i); out.push(d); }
   return out;
 }
 const fmtD = d => (d.getMonth() + 1) + "/" + d.getDate();
@@ -163,8 +176,11 @@ function buildForm() {
     bindText("hashtag", () => state.hashtag, v => state.hashtag = v);
     const ws = $("weekStart");
     ws.addEventListener("change", () => { if (ws.value) { state.weekStart = ws.value; saveState(); renderPage(); draw(); } });
+    const dc = $("dayCount");
+    dc.addEventListener("change", () => { state.days = parseInt(dc.value, 10) === 5 ? 5 : 7; setCanvasSize(); saveState(); renderPage(); draw(); });
   }
   $("weekStart").value = state.weekStart;
+  $("dayCount").value = String(state.days === 5 ? 5 : 7);
   buildTabs();
   renderPage();
 }
@@ -265,17 +281,17 @@ function normalizeShape() {
   state.cells = state.cells || [];
   state.bases = state.bases || [];
   state.modes = state.modes || [];
-  for (let d = 0; d < 5; d++) {
+  for (let d = 0; d < 7; d++) {
     state.cells[d] = state.cells[d] || [];
     while (state.cells[d].length < n) state.cells[d].push([]);
     state.cells[d].length = n;
     state.modes[d] = state.modes[d] || [];
-    while (state.modes[d].length < n) state.modes[d].push("custom");
+    while (state.modes[d].length < n) state.modes[d].push("both");
     state.modes[d].length = n;
   }
   while (state.bases.length < n) state.bases.push([]);
   state.bases.length = n;
-  for (let d = 0; d < 5; d++) for (let i = 0; i < n; i++) {
+  for (let d = 0; d < 7; d++) for (let i = 0; i < n; i++) {
     if (state.modes[d][i] === "base") state.modes[d][i] = "both";
   }
   state.bases.forEach(b => b.forEach(e => { if (e) delete e.on; }));
@@ -396,7 +412,7 @@ function drawPhotoCircle(cx, cy, r, rec, initial) {
 const MARGIN = 36, DATE_W = 96, GAP = 8;
 function COL_W() { const n = Math.max(1, state.members.length); return (W - MARGIN * 2 - DATE_W - GAP * n) / n; }
 const HEAD_H = 168, MEMBER_H = 178, FOOT_H = 58;
-const ROW_H = (H - HEAD_H - MEMBER_H - FOOT_H) / 5;
+let ROW_H = (H - HEAD_H - MEMBER_H - FOOT_H) / 5;
 function colX(i) { return MARGIN + DATE_W + GAP + i * (COL_W() + GAP); }
 
 
@@ -483,6 +499,7 @@ function drawEntry(x, y, w, h, e, padTop) {
   }
 }
 function draw() {
+  ROW_H = (H - HEAD_H - MEMBER_H - FOOT_H) / weekDates().length;
   ctx.fillStyle = "#fdfdf8"; ctx.fillRect(0, 0, W, H);
   const dates = weekDates();
   /* header */
@@ -498,7 +515,7 @@ function draw() {
   let px = fitPx(state.title, 600, 66);
   ctx.font = font(px); ctx.fillStyle = "#fff";
   ctx.fillText(state.title, MARGIN, 106);
-  const last = dates[4];
+  const last = dates[dates.length - 1];
   const range = fmtD(dates[0]) + " – " + fmtD(last);
   ctx.font = fontNum(58); ctx.fillStyle = "#fff";
   ctx.textAlign = "right";
@@ -608,12 +625,13 @@ $("download").addEventListener("click", () => {
 $("resetSample").addEventListener("click", () => { state = freshDefault(); activeTab = -1; saveState(); buildForm(); draw(); });
 $("clearAll").addEventListener("click", () => {
   const n = state.members.length;
-  state.cells = Array.from({ length: 5 }, () => Array.from({ length: n }, () => []));
+  state.cells = Array.from({ length: 7 }, () => Array.from({ length: n }, () => []));
   if (state.modes) state.modes = state.modes.map(row => row.map(() => "custom"));
   saveState(); renderPage(); draw();
 });
 
 normalizeShape();
+setCanvasSize();
 buildForm();
 draw();
 </script>
