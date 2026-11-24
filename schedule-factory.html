@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>週間活動予定表メーカー｜こくみん選挙ツール工房</title>
+<meta name="description" content="総支部の週間活動予定表（駅頭などの予定）を、名前と駅名を入れるだけで作れる無料ツールです。写真と文字はあなたの端末の中だけで処理され、送信されません。">
+<style>
+  body { font-family: "Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif; margin: 0; background: #f4f4f6; color: #222; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 20px; padding: 20px; max-width: 1180px; margin: 0 auto; align-items: flex-start; }
+  .form { flex: 1 1 420px; background: #fff; border-radius: 12px; padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .form h1 { font-size: 18px; margin: 0 0 4px; }
+  .form p.note { font-size: 12px; color: #666; margin: 0 0 14px; line-height: 1.6; }
+  .form h2 { font-size: 15px; margin: 20px 0 6px; border-left: 4px solid #f5b500; padding-left: 8px; }
+  label { display: block; font-size: 12px; font-weight: 700; margin: 10px 0 3px; color: #445; }
+  input[type=text], input[type=date], input[type=time], select { box-sizing: border-box; font-size: 14px; padding: 6px; border: 1px solid #ccc; border-radius: 6px; }
+  input[type=text] { width: 100%; }
+  input[type=file] { font-size: 12px; width: 100%; }
+  button { font-weight: 700; border: 0; border-radius: 10px; cursor: pointer; }
+  #download { margin-top: 20px; width: 100%; font-size: 16px; padding: 12px; background: #0b3c8a; color: #fff; }
+  .subbtn { background: #eef1f5; color: #31517a; font-size: 13px; padding: 8px 12px; margin-top: 8px; }
+  .member { border: 1px solid #e2e6ec; border-radius: 10px; padding: 10px 12px; margin-top: 10px; }
+  .member .mrow { display: flex; gap: 8px; }
+  .member .mrow > div { flex: 1; }
+  .day { border: 1px solid #e2e6ec; border-radius: 10px; margin-top: 12px; overflow: hidden; }
+  .day > .dhead { background: #16295e; color: #fff; font-weight: 700; font-size: 14px; padding: 7px 12px; }
+  .cell { border-top: 1px solid #eef1f5; padding: 8px 12px 10px; }
+  .cell .cname { font-size: 13px; font-weight: 700; color: #16295e; }
+  .entry { background: #f8f9fb; border-radius: 8px; padding: 8px; margin-top: 6px; }
+  .entry .erow { display: flex; gap: 6px; flex-wrap: wrap; align-items: flex-end; }
+  .entry .erow > div { flex: 0 0 auto; }
+  .entry .grow { flex: 1 1 110px !important; }
+  .entry input[type=text] { width: 100%; }
+  .entry label { margin: 4px 0 2px; font-size: 11px; }
+  .chk { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; margin-top: 6px; }
+  .preview { flex: 0 1 430px; text-align: center; position: sticky; top: 12px; }
+  canvas { width: 100%; max-width: 430px; height: auto; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,.15); background: #fff; touch-action: none; }
+  .preview p { font-size: 12px; color: #666; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="form">
+    <h1>週間活動予定表メーカー</h1>
+    <p class="note">入力すると右の画像がその場で作られます。写真はこの端末の中だけで処理され、どこにも送信されません。できあがったら「PNGをダウンロード」を押してください（1080×1350）。入力内容（写真以外）はこの端末に保存され、次回開いたときに復元されます。</p>
+
+    <h2>基本情報</h2>
+    <label>総支部名</label>
+    <input type="text" id="branch">
+    <label>タイトル</label>
+    <input type="text" id="title">
+    <label>週の開始日（月曜日）</label>
+    <input type="date" id="weekStart">
+    <label>表の上の小見出し</label>
+    <input type="text" id="kicker">
+    <label>フッターの注意書き</label>
+    <input type="text" id="footerNote">
+    <label>ハッシュタグ</label>
+    <input type="text" id="hashtag">
+
+    <h2>メンバー（4人）</h2>
+    <div id="members"></div>
+
+    <h2>ゲスト（任意・1人）</h2>
+    <div class="member">
+      <div class="mrow">
+        <div><label>名前</label><input type="text" id="guestName"></div>
+        <div><label>肩書</label><input type="text" id="guestRole"></div>
+      </div>
+      <label>写真（なくても作れます）</label>
+      <input type="file" id="guestPhoto" accept="image/*">
+    </div>
+
+    <h2>予定（1マス最大2件）</h2>
+    <div id="days"></div>
+
+    <button id="download">PNGをダウンロード</button>
+    <button class="subbtn" id="resetSample" type="button">サンプルの内容に戻す</button>
+    <button class="subbtn" id="clearAll" type="button">予定を全部空にする</button>
+  </div>
+  <div class="preview">
+    <canvas id="cv" width="1080" height="1350"></canvas>
+    <p>プレビュー（実物は1080×1350のPNGです）<br>メンバーの写真は、プレビューの上でドラッグして位置を、マウスホイール／下のスライダーで大きさを調整できます。</p>
+    <label style="display:block;font-size:12px;font-weight:700;color:#445">選択中の写真の大きさ</label>
+    <input type="range" id="zoom" min="100" max="300" value="100" style="width:100%;max-width:430px">
+  </div>
+</div>
+<script>
+"use strict";
+const W = 1080, H = 1350;
+const NAVY = "#16295e", NAVY2 = "#0e1e49", YELLOW = "#f5b500", INK = "#1c2733";
+const AM = "#e8541d", PM = "#7a4fd0", LINE = "#31517a";
+const WD = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+const WDJP = ["日","月","火","水","木","金","土"];
+
+const SAMPLE = {
+  branch: "国民民主党 東京都第4区総支部",
+  title: "大田の声を聴く。",
+  kicker: "国民民主党東京第4区 週間活動予定",
+  weekStart: "2026-11-23",
+  footerNote: "※ 雨天などの事情により変更となる場合があります。詳細は各政策委員のSNSにて発信します。",
+  hashtag: "#東京第4区 #国民民主党",
+  members: [
+    { name: "おくがき敦子", role: "区政担当政策委員" },
+    { name: "野上たいき", role: "区政担当政策委員" },
+    { name: "あくつたけし", role: "区政担当政策委員" },
+    { name: "山崎いくこ", role: "区政担当政策委員" }
+  ],
+  guest: { name: "福井ゆうた", role: "東京都議会議員" },
+  cells: [
+    [ [], [], [], [] ],
+    [
+      [ { station: "武蔵新田駅", exit: "", line: "東急", kind: "am", start: "7:00", end: "8:30", guest: false } ],
+      [ { station: "池上駅", exit: "", line: "東急", kind: "am", start: "7:00", end: "8:30", guest: false },
+        { station: "石川台駅", exit: "", line: "東急", kind: "pm", start: "15:00", end: "16:30", guest: true } ],
+      [ { station: "大森駅", exit: "西口", line: "JR", kind: "am", start: "7:00", end: "9:00", guest: false },
+        { station: "大森駅", exit: "西口", line: "JR", kind: "pm", start: "18:00", end: "20:00", guest: false } ],
+      [ { station: "蒲田駅", exit: "東口", line: "JR", kind: "am", start: "7:00", end: "8:30", guest: false } ]
+    ],
+    [
+      [ { station: "下丸子駅", exit: "", line: "東急", kind: "am", start: "7:00", end: "8:30", guest: false } ],
+      [ { station: "馬込駅", exit: "", line: "都営", kind: "am", start: "7:00", end: "8:30", guest: false },
+        { station: "大岡山駅", exit: "", line: "東急", kind: "pm", start: "15:30", end: "17:00", guest: false } ],
+      [ { station: "大森駅", exit: "北口", line: "JR", kind: "am", start: "7:00", end: "9:00", guest: false },
+        { station: "平和島駅", exit: "", line: "京急", kind: "pm", start: "18:00", end: "20:00", guest: true } ],
+      [ { station: "京急蒲田駅", exit: "", line: "京急", kind: "am", start: "7:00", end: "8:30", guest: false } ]
+    ],
+    [
+      [ { station: "鵜の木駅", exit: "", line: "東急", kind: "am", start: "7:00", end: "8:30", guest: false } ],
+      [ { station: "長原駅", exit: "", line: "東急", kind: "am", start: "7:00", end: "8:30", guest: false } ],
+      [ { station: "大森駅", exit: "東口", line: "JR", kind: "am", start: "7:00", end: "8:30", guest: false } ],
+      [ { station: "蒲田駅", exit: "西口", line: "JR", kind: "am", start: "7:00", end: "8:30", guest: true } ]
+    ],
+    [
+      [ { station: "矢口渡駅", exit: "", line: "東急", kind: "am", start: "6:30", end: "8:00", guest: true } ],
+      [ { station: "西馬込駅", exit: "", line: "都営", kind: "am", start: "7:00", end: "8:30", guest: false },
+        { station: "洗足池駅", exit: "", line: "東急", kind: "pm", start: "17:00", end: "18:30", guest: false } ],
+      [ { station: "梅屋敷駅", exit: "", line: "京急", kind: "am", start: "7:00", end: "8:30", guest: false } ],
+      [ { station: "蒲田駅", exit: "南口", line: "JR", kind: "am", start: "7:00", end: "8:30", guest: false } ]
+    ]
+  ]
+};
+
+let state = loadState();
+const photos = [null, null, null, null]; // {img, dx, dy, scale}
+let guestPhoto = null;
+let selectedPhoto = 0;
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem("scheduleFactoryV1");
+    if (raw) { const s = JSON.parse(raw); if (s && s.cells && s.members) return s; }
+  } catch (e) {}
+  return JSON.parse(JSON.stringify(SAMPLE));
+}
+function saveState() {
+  try { localStorage.setItem("scheduleFactoryV1", JSON.stringify(state)); } catch (e) {}
+}
+function weekDates() {
+  const base = new Date(state.weekStart + "T00:00:00");
+  const out = [];
+  for (let i = 0; i < 5; i++) { const d = new Date(base); d.setDate(d.getDate() + i); out.push(d); }
+  return out;
+}
+const fmtD = d => (d.getMonth() + 1) + "/" + d.getDate();
+
+/* ---------- form building ---------- */
+const $ = id => document.getElementById(id);
+function bindText(id, get, set) {
+  const el = $(id); el.value = get();
+  el.addEventListener("input", () => { set(el.value); saveState(); draw(); });
+}
+function buildForm() {
+  bindText("branch", () => state.branch, v => state.branch = v);
+  bindText("title", () => state.title, v => state.title = v);
+  bindText("kicker", () => state.kicker, v => state.kicker = v);
+  bindText("footerNote", () => state.footerNote, v => state.footerNote = v);
+  bindText("hashtag", () => state.hashtag, v => state.hashtag = v);
+  bindText("guestName", () => state.guest.name, v => state.guest.name = v);
+  bindText("guestRole", () => state.guest.role, v => state.guest.role = v);
+  const ws = $("weekStart"); ws.value = state.weekStart;
+  ws.addEventListener("change", () => { if (ws.value) { state.weekStart = ws.value; saveState(); buildDays(); draw(); } });
+
+  const mw = $("members"); mw.innerHTML = "";
+  state.members.forEach((m, i) => {
+    const div = document.createElement("div"); div.className = "member";
+    div.innerHTML = `<div class="mrow">
+      <div><label>名前</label><input type="text" data-m="${i}" data-f="name"></div>
+      <div><label>肩書</label><input type="text" data-m="${i}" data-f="role"></div></div>
+      <label>写真（なくても作れます）</label><input type="file" accept="image/*" data-photo="${i}">`;
+    mw.appendChild(div);
+    div.querySelectorAll("input[type=text]").forEach(inp => {
+      inp.value = m[inp.dataset.f];
+      inp.addEventListener("input", () => { state.members[i][inp.dataset.f] = inp.value; saveState(); buildDays(); draw(); });
+    });
+    div.querySelector("input[type=file]").addEventListener("change", ev => loadPhoto(ev.target.files[0], i));
+  });
+  $("guestPhoto").addEventListener("change", ev => loadPhoto(ev.target.files[0], -1));
+  buildDays();
+}
+function entryEditor(day, mem, idx) {
+  const e = state.cells[day][mem][idx] || { station: "", exit: "", line: "", kind: "am", start: "", end: "", guest: false };
+  const div = document.createElement("div"); div.className = "entry";
+  div.innerHTML = `
+    <div class="erow">
+      <div class="grow"><label>駅名・場所</label><input type="text" data-f="station" placeholder="例：蒲田駅"></div>
+      <div><label>出口</label><select data-f="exit">
+        <option value="">なし</option><option>東口</option><option>西口</option><option>南口</option><option>北口</option><option>中央口</option></select></div>
+      <div><label>路線</label><input type="text" data-f="line" style="width:56px" placeholder="JR"></div>
+    </div>
+    <div class="erow">
+      <div><label>区分</label><select data-f="kind"><option value="am">朝活</option><option value="pm">夕活</option></select></div>
+      <div><label>開始</label><input type="time" data-f="start"></div>
+      <div><label>終了</label><input type="time" data-f="end"></div>
+      <div><label class="chk"><input type="checkbox" data-f="guest"> ゲスト参加</label></div>
+    </div>`;
+  div.querySelectorAll("[data-f]").forEach(inp => {
+    const f = inp.dataset.f;
+    if (inp.type === "checkbox") inp.checked = !!e[f]; else inp.value = e[f] || "";
+    inp.addEventListener("input", () => {
+      while (state.cells[day][mem].length <= idx) state.cells[day][mem].push({ station: "", exit: "", line: "", kind: "am", start: "", end: "", guest: false });
+      state.cells[day][mem][idx][f] = inp.type === "checkbox" ? inp.checked : inp.value;
+      if (f === "station" && !inp.value) { /* keep slot */ }
+      saveState(); draw();
+    });
+  });
+  return div;
+}
+function buildDays() {
+  const dw = $("days"); dw.innerHTML = "";
+  const dates = weekDates();
+  dates.forEach((d, di) => {
+    const dayDiv = document.createElement("div"); dayDiv.className = "day";
+    const head = document.createElement("div"); head.className = "dhead";
+    head.textContent = fmtD(d) + "（" + WDJP[d.getDay()] + "）";
+    dayDiv.appendChild(head);
+    state.members.forEach((m, mi) => {
+      const cell = document.createElement("div"); cell.className = "cell";
+      const nm = document.createElement("div"); nm.className = "cname"; nm.textContent = m.name || ("メンバー" + (mi + 1));
+      cell.appendChild(nm);
+      cell.appendChild(entryEditor(di, mi, 0));
+      cell.appendChild(entryEditor(di, mi, 1));
+      dayDiv.appendChild(cell);
+    });
+    dw.appendChild(dayDiv);
+  });
+}
+function loadPhoto(file, idx) {
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    const rec = { img, dx: 0, dy: 0, scale: 1 };
+    if (idx === -1) guestPhoto = rec; else { photos[idx] = rec; selectedPhoto = idx; $("zoom").value = 100; }
+    draw();
+  };
+  img.src = url;
+}
+
+/* ---------- drawing ---------- */
+const cv = $("cv"), ctx = cv.getContext("2d");
+function font(px, wgt) { return (wgt || 700) + " " + px + "px 'Hiragino Kaku Gothic ProN','Hiragino Sans','Noto Sans JP','Yu Gothic',sans-serif"; }
+function fitPx(text, maxW, base, wgt) {
+  let px = base; ctx.font = font(px, wgt);
+  while (px > 12 && ctx.measureText(text).width > maxW) { px -= 2; ctx.font = font(px, wgt); }
+  return px;
+}
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function drawPhotoCircle(cx, cy, r, rec, initial) {
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+  if (rec && rec.img) {
+    const img = rec.img;
+    const base = Math.max((r * 2) / img.width, (r * 2) / img.height);
+    const s = base * (rec.scale || 1);
+    const w = img.width * s, h = img.height * s;
+    ctx.drawImage(img, cx - w / 2 + (rec.dx || 0), cy - h / 2 + (rec.dy || 0), w, h);
+  } else {
+    ctx.fillStyle = "#31517a"; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    ctx.fillStyle = "#fff"; ctx.font = font(r * 0.95);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(initial || "？", cx, cy + r * 0.05);
+  }
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.lineWidth = 3; ctx.strokeStyle = "#fff"; ctx.stroke();
+}
+const MARGIN = 36, DATE_W = 96, GAP = 8;
+const COL_W = (W - MARGIN * 2 - DATE_W - GAP * 4) / 4;
+const HEAD_H = 196, MEMBER_H = 178, FOOT_H = 58;
+const ROW_H = (H - HEAD_H - MEMBER_H - FOOT_H) / 5;
+function colX(i) { return MARGIN + DATE_W + GAP + i * (COL_W + GAP); }
+
+function drawEntry(x, y, w, h, e, padTop) {
+  if (!e || !e.station) {
+    ctx.fillStyle = "#c8cfd8"; ctx.font = font(30, 400);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("―", x + w / 2, y + h / 2);
+    return;
+  }
+  const pad = 10;
+  const compact = h < 120;
+  const badgeH = compact ? 22 : 26, badgeF = compact ? 16 : 19;
+  let cx = x + pad;
+  const topY = y + (compact ? 5 : 8) + (padTop || 0);
+  // badges
+  ctx.textBaseline = "middle"; ctx.textAlign = "left";
+  if (e.line) {
+    ctx.font = font(badgeF);
+    const tw = ctx.measureText(e.line).width + 16;
+    roundRect(cx, topY, tw, badgeH, 5); ctx.fillStyle = LINE; ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.fillText(e.line, cx + 8, topY + badgeH / 2 + 1);
+    cx += tw + 6;
+  }
+  const kindTxt = e.kind === "pm" ? "夕活" : "朝活";
+  ctx.font = font(badgeF);
+  const kw = ctx.measureText(kindTxt).width + 16;
+  roundRect(cx, topY, kw, badgeH, 5); ctx.fillStyle = e.kind === "pm" ? PM : AM; ctx.fill();
+  ctx.fillStyle = "#fff"; ctx.fillText(kindTxt, cx + 8, topY + badgeH / 2 + 1);
+  // station
+  const stY = topY + (compact ? 35 : 46);
+  let stTxt = e.station;
+  let px = fitPx(stTxt, w - pad * 2 - (e.exit ? 74 : 0) - (compact && e.guest ? 52 : 0), compact ? 30 : 37);
+  ctx.font = font(px); ctx.fillStyle = INK;
+  ctx.fillText(stTxt, x + pad, stY);
+  const stW = ctx.measureText(stTxt).width;
+  if (e.exit) {
+    ctx.font = font(compact ? 16 : 19);
+    const ew = ctx.measureText(e.exit).width + 14;
+    roundRect(x + pad + stW + 8, stY - 14, ew, 28, 6);
+    ctx.fillStyle = "#e8eef6"; ctx.fill();
+    ctx.fillStyle = LINE; ctx.fillText(e.exit, x + pad + stW + 15, stY + 1);
+  }
+  // time
+  ctx.font = font(compact ? 18 : 21, 400); ctx.fillStyle = "#55606a";
+  const timeTxt = (e.kind === "pm" ? "夕 " : "朝 ") + (e.start || "") + (e.end ? "–" + e.end : "");
+  ctx.fillText("◷ " + timeTxt, x + pad, stY + (compact ? 27 : 34));
+  // guest pill
+  if (e.guest && state.guest.name) {
+    const label = state.guest.name;
+    if (compact) {
+      // compact cells: photo badge + GUEST label at the top-right corner
+      const ccx = x + w - 26, ccy = topY + 13;
+      drawPhotoCircle(ccx, ccy, 15, guestPhoto, label.slice(0, 1));
+      ctx.beginPath(); ctx.arc(ccx, ccy, 15, 0, Math.PI * 2);
+      ctx.lineWidth = 3; ctx.strokeStyle = YELLOW; ctx.stroke();
+      ctx.fillStyle = LINE; ctx.font = font(11); ctx.textAlign = "center";
+      ctx.fillText("GUEST", ccx, ccy + 26);
+      ctx.textAlign = "left";
+    } else {
+      ctx.font = font(13); const gw = ctx.measureText("GUEST").width;
+      ctx.font = font(18); const tw = ctx.measureText(label).width;
+      const pw = 36 + gw + 8 + tw + 14, ph = 34;
+      const gx = x + w - pw - 6, gy = y + h - ph - 6;
+      roundRect(gx, gy, pw, ph, ph / 2); ctx.fillStyle = NAVY; ctx.fill();
+      drawPhotoCircle(gx + ph / 2, gy + ph / 2, ph / 2 - 4, guestPhoto, label.slice(0, 1));
+      ctx.fillStyle = YELLOW; ctx.font = font(13);
+      ctx.fillText("GUEST", gx + 36, gy + ph / 2 + 1);
+      ctx.fillStyle = "#fff"; ctx.font = font(18);
+      ctx.fillText(label, gx + 36 + gw + 8, gy + ph / 2 + 1);
+    }
+  }
+}
+function draw() {
+  ctx.fillStyle = "#fdfdf8"; ctx.fillRect(0, 0, W, H);
+  const dates = weekDates();
+  /* header */
+  ctx.fillStyle = NAVY; ctx.fillRect(0, 0, W, HEAD_H);
+  ctx.fillStyle = YELLOW; ctx.fillRect(0, HEAD_H - 8, W, 8);
+  ctx.textBaseline = "middle"; ctx.textAlign = "left";
+  ctx.fillStyle = "#fff"; ctx.font = font(24);
+  ctx.fillText(state.branch, MARGIN, 34);
+  ctx.textAlign = "right"; ctx.fillStyle = YELLOW; ctx.font = font(24);
+  ctx.fillText("WEEKLY ACTIVITY", W - MARGIN, 34);
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#ffd94d"; ctx.font = font(21);
+  ctx.fillText(state.kicker, MARGIN, 68);
+  // title + range
+  let px = fitPx(state.title, 620, 66);
+  ctx.font = font(px); ctx.fillStyle = "#fff";
+  ctx.fillText(state.title, MARGIN, 128);
+  const last = dates[4];
+  const range = fmtD(dates[0]) + " – " + fmtD(last);
+  ctx.textAlign = "right"; ctx.font = font(58); ctx.fillStyle = "#fff";
+  ctx.fillText(range, W - MARGIN, 118);
+  ctx.font = font(21, 400); ctx.fillStyle = "#cdd7ea";
+  ctx.fillText(dates[0].getFullYear() + " / " + WD[dates[0].getDay()] + " – " + WD[last.getDay()], W - MARGIN, 158);
+  ctx.textAlign = "left";
+  /* member header row */
+  const my = HEAD_H;
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, my, W, MEMBER_H);
+  state.members.forEach((m, i) => {
+    const x = colX(i), cxm = x + COL_W / 2;
+    if (i > 0) { ctx.fillStyle = "#e3e7ee"; ctx.fillRect(x - GAP / 2, my + 14, 1, MEMBER_H - 28); }
+    drawPhotoCircle(cxm, my + 62, 44, photos[i], (m.name || "？").slice(0, 1));
+    let np = fitPx(m.name, COL_W - 12, 31);
+    ctx.font = font(np); ctx.fillStyle = INK; ctx.textAlign = "center";
+    ctx.fillText(m.name, cxm, my + 128);
+    ctx.font = font(18, 400); ctx.fillStyle = "#66707c";
+    ctx.fillText(m.role, cxm, my + 156);
+    ctx.textAlign = "left";
+  });
+  ctx.fillStyle = NAVY; ctx.font = font(20); ctx.textAlign = "center";
+  ctx.fillText("DATE", MARGIN + DATE_W / 2, my + MEMBER_H / 2);
+  ctx.textAlign = "left";
+  /* grid rows */
+  dates.forEach((d, di) => {
+    const y = HEAD_H + MEMBER_H + di * ROW_H;
+    ctx.fillStyle = di % 2 ? "#f4f6fa" : "#ffffff";
+    ctx.fillRect(0, y, W, ROW_H);
+    ctx.fillStyle = "#d9dee7"; ctx.fillRect(0, y + ROW_H - 1, W, 1);
+    // date cell
+    ctx.fillStyle = NAVY2; ctx.fillRect(MARGIN, y + 8, DATE_W, ROW_H - 16);
+    ctx.fillStyle = "#fff"; ctx.textAlign = "center";
+    ctx.font = font(30); ctx.fillText(fmtD(d), MARGIN + DATE_W / 2, y + ROW_H / 2 - 18);
+    ctx.font = font(19); ctx.fillStyle = YELLOW;
+    ctx.fillText(WD[d.getDay()], MARGIN + DATE_W / 2, y + ROW_H / 2 + 16);
+    ctx.textAlign = "left";
+    state.members.forEach((m, mi) => {
+      const x = colX(mi);
+      const entries = (state.cells[di][mi] || []).filter(e => e && e.station);
+      if (!entries.length) { drawEntry(x, y + 6, COL_W, ROW_H - 12, null); return; }
+      const eh = (ROW_H - 12) / entries.length;
+      entries.forEach((e, ei) => {
+        drawEntry(x, y + 6 + ei * eh, COL_W, eh, e, entries.length === 1 ? 26 : 0);
+        if (ei > 0) { ctx.strokeStyle = "#d9dee7"; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x + 8, y + 6 + ei * eh); ctx.lineTo(x + COL_W - 8, y + 6 + ei * eh); ctx.stroke(); ctx.setLineDash([]); }
+      });
+    });
+  });
+  /* footer */
+  const fy = H - FOOT_H;
+  ctx.fillStyle = NAVY; ctx.fillRect(0, fy, W, FOOT_H);
+  ctx.fillStyle = "#fff"; ctx.font = font(18, 400); ctx.textAlign = "left";
+  ctx.fillText(state.footerNote, MARGIN, fy + FOOT_H / 2);
+  ctx.textAlign = "right"; ctx.fillStyle = YELLOW; ctx.font = font(19);
+  ctx.fillText(state.hashtag, W - MARGIN, fy + FOOT_H / 2);
+  ctx.textAlign = "left";
+}
+
+/* ---------- photo drag / zoom ---------- */
+function canvasPos(ev) {
+  const r = cv.getBoundingClientRect();
+  const sx = W / r.width, sy = H / r.height;
+  const p = ev.touches ? ev.touches[0] : ev;
+  return { x: (p.clientX - r.left) * sx, y: (p.clientY - r.top) * sy };
+}
+function photoAt(p) {
+  const my = HEAD_H;
+  for (let i = 0; i < 4; i++) {
+    const cxm = colX(i) + COL_W / 2;
+    if (Math.hypot(p.x - cxm, p.y - (my + 62)) <= 48 && photos[i]) return i;
+  }
+  return -1;
+}
+let drag = null;
+cv.addEventListener("pointerdown", ev => {
+  const p = canvasPos(ev);
+  const idx = photoAt(p);
+  if (idx >= 0) { selectedPhoto = idx; $("zoom").value = Math.round((photos[idx].scale || 1) * 100); drag = { idx, x: p.x, y: p.y }; cv.setPointerCapture(ev.pointerId); }
+});
+cv.addEventListener("pointermove", ev => {
+  if (!drag) return;
+  const p = canvasPos(ev);
+  photos[drag.idx].dx += p.x - drag.x; photos[drag.idx].dy += p.y - drag.y;
+  drag.x = p.x; drag.y = p.y; draw();
+});
+cv.addEventListener("pointerup", () => drag = null);
+cv.addEventListener("wheel", ev => {
+  const p = canvasPos(ev); const idx = photoAt(p);
+  if (idx >= 0) { ev.preventDefault(); selectedPhoto = idx; const rec = photos[idx]; rec.scale = Math.min(3, Math.max(1, (rec.scale || 1) * (ev.deltaY < 0 ? 1.05 : 0.95))); $("zoom").value = Math.round(rec.scale * 100); draw(); }
+}, { passive: false });
+$("zoom").addEventListener("input", () => {
+  const rec = photos[selectedPhoto];
+  if (rec) { rec.scale = $("zoom").value / 100; draw(); }
+});
+
+/* ---------- buttons ---------- */
+$("download").addEventListener("click", () => {
+  cv.toBlob(b => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = "weekly-schedule-" + state.weekStart + ".png";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }, "image/png");
+});
+$("resetSample").addEventListener("click", () => { state = JSON.parse(JSON.stringify(SAMPLE)); saveState(); buildForm(); draw(); });
+$("clearAll").addEventListener("click", () => {
+  state.cells = Array.from({ length: 5 }, () => [[], [], [], []]);
+  saveState(); buildDays(); draw();
+});
+
+buildForm();
+draw();
+</script>
+</body>
+</html>
