@@ -58,8 +58,6 @@
     <input type="text" id="title">
     <label>週の開始日（月曜日）</label>
     <input type="date" id="weekStart">
-    <label>表の上の小見出し</label>
-    <input type="text" id="kicker">
     <label>フッターの注意書き</label>
     <input type="text" id="footerNote">
     <label>ハッシュタグ</label>
@@ -191,7 +189,6 @@ function buildForm() {
     document.body.dataset.basicBound = "1";
     bindText("branch", () => state.branch, v => state.branch = v);
     bindText("title", () => state.title, v => state.title = v);
-    bindText("kicker", () => state.kicker, v => state.kicker = v);
     bindText("footerNote", () => state.footerNote, v => state.footerNote = v);
     bindText("hashtag", () => state.hashtag, v => state.hashtag = v);
     bindText("guestName", () => state.guest.name, v => state.guest.name = v);
@@ -412,66 +409,82 @@ function drawPhotoCircle(cx, cy, r, rec, initial) {
 }
 const MARGIN = 36, DATE_W = 96, GAP = 8;
 function COL_W() { const n = Math.max(1, state.members.length); return (W - MARGIN * 2 - DATE_W - GAP * n) / n; }
-const HEAD_H = 196, MEMBER_H = 178, FOOT_H = 58;
+const HEAD_H = 168, MEMBER_H = 178, FOOT_H = 58;
 const ROW_H = (H - HEAD_H - MEMBER_H - FOOT_H) / 5;
 function colX(i) { return MARGIN + DATE_W + GAP + i * (COL_W() + GAP); }
 
+
+function drawSun(cx, cy, r, color) {
+  ctx.save(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = Math.max(2, r * 0.22);
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.55, 0, Math.PI * 2); ctx.fill();
+  for (let a = 0; a < 8; a++) {
+    const th = a * Math.PI / 4;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(th) * r * 0.78, cy + Math.sin(th) * r * 0.78);
+    ctx.lineTo(cx + Math.cos(th) * r * 1.08, cy + Math.sin(th) * r * 1.08);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawMoon(cx, cy, r, color) {
+  ctx.save(); ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.arc(cx + r * 0.52, cy - r * 0.2, r * 0.8, 0, Math.PI * 2);
+  ctx.fill("evenodd");
+  ctx.restore();
+}
 function drawEntry(x, y, w, h, e, padTop) {
   if (!e || !e.station) {
     ctx.fillStyle = "#c8cfd8"; ctx.font = font(30, 400);
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText("―", x + w / 2, y + h / 2);
+    ctx.textAlign = "left";
     return;
   }
   const pad = 10;
   const compact = h < 120;
-  const badgeH = compact ? 22 : 26, badgeF = compact ? 16 : 19;
+  const badgeH = compact ? 22 : 27, badgeF = compact ? 16 : 19;
   let cx = x + pad;
-  const topY = y + (compact ? 5 : 8) + (padTop || 0);
-  // badges
+  const topY = y + (compact ? 4 : 9) + (padTop || 0);
   ctx.textBaseline = "middle"; ctx.textAlign = "left";
+  // row 1: line chip + sun/moon icon + time
   if (e.line) {
     ctx.font = font(badgeF);
     const tw = ctx.measureText(e.line).width + 16;
     roundRect(cx, topY, tw, badgeH, 5); ctx.fillStyle = LINE; ctx.fill();
     ctx.fillStyle = "#fff"; ctx.fillText(e.line, cx + 8, topY + badgeH / 2 + 1);
-    cx += tw + 6;
+    cx += tw + 10;
   }
-  const kindTxt = e.kind === "pm" ? "夕活" : "朝活";
-  ctx.font = font(badgeF);
-  const kw = ctx.measureText(kindTxt).width + 16;
-  roundRect(cx, topY, kw, badgeH, 5); ctx.fillStyle = e.kind === "pm" ? PM : AM; ctx.fill();
-  ctx.fillStyle = "#fff"; ctx.fillText(kindTxt, cx + 8, topY + badgeH / 2 + 1);
-  // station
-  const stY = topY + (compact ? 35 : 46);
+  const iconR = compact ? 10 : 13;
+  const iconCx = cx + iconR, iconCy = topY + badgeH / 2;
+  if (e.kind === "pm") drawMoon(iconCx, iconCy, iconR, "#e39a00"); else drawSun(iconCx, iconCy, iconR, "#f07d00");
+  cx += iconR * 2 + 7;
+  ctx.font = font(compact ? 19 : (w > 340 ? 27 : 24), 400); ctx.fillStyle = "#3d4753";
+  const timeTxt = (e.start || "") + (e.end ? "–" + e.end : "");
+  ctx.fillText(timeTxt, cx, topY + badgeH / 2 + 1);
+  // row 2: station (+ exit chip), well clear of row 1
+  const stY = topY + (compact ? 52 : 82);
   let stTxt = e.station;
-  let px = fitPx(stTxt, w - pad * 2 - (e.exit ? 74 : 0) - (compact && e.guest ? 52 : 0), compact ? (w > 340 ? 40 : 30) : (w > 340 ? 48 : 37));
+  let px = fitPx(stTxt, w - pad * 2 - (e.exit ? 76 : 0) - (compact && e.guest ? 52 : 0), compact ? (w > 340 ? 40 : 31) : (w > 340 ? 56 : 44));
   ctx.font = font(px); ctx.fillStyle = INK;
   ctx.fillText(stTxt, x + pad, stY);
   const stW = ctx.measureText(stTxt).width;
   if (e.exit) {
-    ctx.font = font(compact ? 16 : 19);
+    ctx.font = font(compact ? 16 : 20);
     const ew = ctx.measureText(e.exit).width + 14;
-    roundRect(x + pad + stW + 8, stY - 14, ew, 28, 6);
+    roundRect(x + pad + stW + 9, stY - 15, ew, 30, 6);
     ctx.fillStyle = "#e8eef6"; ctx.fill();
-    ctx.fillStyle = LINE; ctx.fillText(e.exit, x + pad + stW + 15, stY + 1);
+    ctx.fillStyle = LINE; ctx.fillText(e.exit, x + pad + stW + 16, stY + 1);
   }
-  // time
-  ctx.font = font(compact ? 18 : (w > 340 ? 25 : 21), 400); ctx.fillStyle = "#55606a";
-  const timeTxt = (e.kind === "pm" ? "夕 " : "朝 ") + (e.start || "") + (e.end ? "–" + e.end : "");
-  ctx.fillText("◷ " + timeTxt, x + pad, stY + (compact ? 27 : 34));
   // guest pill
   if (e.guest && state.guest.name) {
     const label = state.guest.name;
     if (compact) {
-      // compact cells: photo badge + GUEST label at the top-right corner
-      const ccx = x + w - 26, ccy = topY + 13;
-      drawPhotoCircle(ccx, ccy, 15, guestPhoto, label.slice(0, 1));
-      ctx.beginPath(); ctx.arc(ccx, ccy, 15, 0, Math.PI * 2);
+      const ccx = x + w - 24, ccy = y + h - 19;
+      drawPhotoCircle(ccx, ccy, 13, guestPhoto, label.slice(0, 1));
+      ctx.beginPath(); ctx.arc(ccx, ccy, 13, 0, Math.PI * 2);
       ctx.lineWidth = 3; ctx.strokeStyle = YELLOW; ctx.stroke();
-      ctx.fillStyle = LINE; ctx.font = font(11); ctx.textAlign = "center";
-      ctx.fillText("GUEST", ccx, ccy + 26);
-      ctx.textAlign = "left";
     } else {
       ctx.font = font(13); const gw = ctx.measureText("GUEST").width;
       ctx.font = font(18); const tw = ctx.measureText(label).width;
@@ -494,22 +507,22 @@ function draw() {
   ctx.fillStyle = YELLOW; ctx.fillRect(0, HEAD_H - 8, W, 8);
   ctx.textBaseline = "middle"; ctx.textAlign = "left";
   ctx.fillStyle = "#fff"; ctx.font = font(24);
-  ctx.fillText(state.branch, MARGIN, 34);
+  ctx.fillText(state.branch + " 週間活動予定", MARGIN, 34);
   ctx.textAlign = "right"; ctx.fillStyle = YELLOW; ctx.font = font(24);
   ctx.fillText("WEEKLY ACTIVITY", W - MARGIN, 34);
   ctx.textAlign = "left";
-  ctx.fillStyle = "#ffd94d"; ctx.font = font(21);
-  ctx.fillText(state.kicker, MARGIN, 68);
   // title + range
-  let px = fitPx(state.title, 620, 66);
+  let px = fitPx(state.title, 600, 66);
   ctx.font = font(px); ctx.fillStyle = "#fff";
-  ctx.fillText(state.title, MARGIN, 128);
+  ctx.fillText(state.title, MARGIN, 106);
   const last = dates[4];
   const range = fmtD(dates[0]) + " – " + fmtD(last);
-  ctx.textAlign = "right"; ctx.font = font(58); ctx.fillStyle = "#fff";
-  ctx.fillText(range, W - MARGIN, 118);
-  ctx.font = font(21, 400); ctx.fillStyle = "#cdd7ea";
-  ctx.fillText(dates[0].getFullYear() + " / " + WD[dates[0].getDay()] + " – " + WD[last.getDay()], W - MARGIN, 158);
+  ctx.font = font(58); ctx.fillStyle = "#fff";
+  const rangeW = ctx.measureText(range).width;
+  ctx.textAlign = "right";
+  ctx.fillText(range, W - MARGIN, 106);
+  ctx.font = font(30, 400); ctx.fillStyle = "#cdd7ea";
+  ctx.fillText(dates[0].getFullYear() + "/", W - MARGIN - rangeW - 8, 118);
   ctx.textAlign = "left";
   /* member header row */
   const my = HEAD_H;
@@ -548,7 +561,7 @@ function draw() {
       if (!entries.length) { drawEntry(x, y + 6, COL_W(), ROW_H - 12, null); return; }
       const eh = (ROW_H - 12) / entries.length;
       entries.forEach((e, ei) => {
-        drawEntry(x, y + 6 + ei * eh, COL_W(), eh, e, entries.length === 1 ? 26 : 0);
+        drawEntry(x, y + 6 + ei * eh, COL_W(), eh, e, entries.length === 1 ? 14 : 0);
         if (ei > 0) { ctx.strokeStyle = "#d9dee7"; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x + 8, y + 6 + ei * eh); ctx.lineTo(x + COL_W() - 8, y + 6 + ei * eh); ctx.stroke(); ctx.setLineDash([]); }
       });
     });
