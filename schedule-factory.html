@@ -58,7 +58,7 @@
     <label>ハッシュタグ</label>
     <input type="text" id="hashtag">
 
-    <h2>メンバー（4人）</h2>
+    <h2>メンバー（1〜6人）</h2>
     <div id="members"></div>
 
     <h2>ゲスト（任意・1人）</h2>
@@ -142,7 +142,7 @@ const SAMPLE = {
 };
 
 let state = loadState();
-const photos = [null, null, null, null]; // {img, dx, dy, scale}
+let photos = [null, null, null, null]; // {img, dx, dy, scale}
 let guestPhoto = null;
 let selectedPhoto = 0;
 
@@ -194,9 +194,44 @@ function buildForm() {
       inp.addEventListener("input", () => { state.members[i][inp.dataset.f] = inp.value; saveState(); buildDays(); draw(); });
     });
     div.querySelector("input[type=file]").addEventListener("change", ev => loadPhoto(ev.target.files[0], i));
+    if (state.members.length > 1) {
+      const del = document.createElement("button");
+      del.type = "button"; del.className = "subbtn"; del.textContent = "このメンバーを削除";
+      del.addEventListener("click", () => removeMember(i));
+      div.appendChild(del);
+    }
   });
-  $("guestPhoto").addEventListener("change", ev => loadPhoto(ev.target.files[0], -1));
+  if (state.members.length < 6) {
+    const add = document.createElement("button");
+    add.type = "button"; add.className = "subbtn"; add.textContent = "＋ メンバーを追加（最大6人）";
+    add.addEventListener("click", addMember);
+    mw.appendChild(add);
+  }
+  if (!$("guestPhoto").dataset.bound) { $("guestPhoto").dataset.bound = "1"; $("guestPhoto").addEventListener("change", ev => loadPhoto(ev.target.files[0], -1)); }
   buildDays();
+}
+function normalizeShape() {
+  const n = state.members.length;
+  state.cells = state.cells || [];
+  for (let d = 0; d < 5; d++) {
+    state.cells[d] = state.cells[d] || [];
+    while (state.cells[d].length < n) state.cells[d].push([]);
+    state.cells[d].length = n;
+  }
+  while (photos.length < n) photos.push(null);
+  photos.length = n;
+}
+function addMember() {
+  if (state.members.length >= 6) return;
+  state.members.push({ name: "", role: "" });
+  normalizeShape(); saveState(); buildForm(); draw();
+}
+function removeMember(i) {
+  if (state.members.length <= 1) return;
+  state.members.splice(i, 1);
+  state.cells.forEach(row => row.splice(i, 1));
+  photos.splice(i, 1);
+  saveState(); buildForm(); draw();
 }
 function entryEditor(day, mem, idx) {
   const e = state.cells[day][mem][idx] || { station: "", exit: "", line: "", kind: "am", start: "", end: "", guest: false };
@@ -292,10 +327,10 @@ function drawPhotoCircle(cx, cy, r, rec, initial) {
   ctx.lineWidth = 3; ctx.strokeStyle = "#fff"; ctx.stroke();
 }
 const MARGIN = 36, DATE_W = 96, GAP = 8;
-const COL_W = (W - MARGIN * 2 - DATE_W - GAP * 4) / 4;
+function COL_W() { const n = Math.max(1, state.members.length); return (W - MARGIN * 2 - DATE_W - GAP * n) / n; }
 const HEAD_H = 196, MEMBER_H = 178, FOOT_H = 58;
 const ROW_H = (H - HEAD_H - MEMBER_H - FOOT_H) / 5;
-function colX(i) { return MARGIN + DATE_W + GAP + i * (COL_W + GAP); }
+function colX(i) { return MARGIN + DATE_W + GAP + i * (COL_W() + GAP); }
 
 function drawEntry(x, y, w, h, e, padTop) {
   if (!e || !e.station) {
@@ -326,7 +361,7 @@ function drawEntry(x, y, w, h, e, padTop) {
   // station
   const stY = topY + (compact ? 35 : 46);
   let stTxt = e.station;
-  let px = fitPx(stTxt, w - pad * 2 - (e.exit ? 74 : 0) - (compact && e.guest ? 52 : 0), compact ? 30 : 37);
+  let px = fitPx(stTxt, w - pad * 2 - (e.exit ? 74 : 0) - (compact && e.guest ? 52 : 0), compact ? (w > 340 ? 40 : 30) : (w > 340 ? 48 : 37));
   ctx.font = font(px); ctx.fillStyle = INK;
   ctx.fillText(stTxt, x + pad, stY);
   const stW = ctx.measureText(stTxt).width;
@@ -338,7 +373,7 @@ function drawEntry(x, y, w, h, e, padTop) {
     ctx.fillStyle = LINE; ctx.fillText(e.exit, x + pad + stW + 15, stY + 1);
   }
   // time
-  ctx.font = font(compact ? 18 : 21, 400); ctx.fillStyle = "#55606a";
+  ctx.font = font(compact ? 18 : (w > 340 ? 25 : 21), 400); ctx.fillStyle = "#55606a";
   const timeTxt = (e.kind === "pm" ? "夕 " : "朝 ") + (e.start || "") + (e.end ? "–" + e.end : "");
   ctx.fillText("◷ " + timeTxt, x + pad, stY + (compact ? 27 : 34));
   // guest pill
@@ -396,13 +431,14 @@ function draw() {
   const my = HEAD_H;
   ctx.fillStyle = "#fff"; ctx.fillRect(0, my, W, MEMBER_H);
   state.members.forEach((m, i) => {
-    const x = colX(i), cxm = x + COL_W / 2;
+    const x = colX(i), cxm = x + COL_W() / 2;
     if (i > 0) { ctx.fillStyle = "#e3e7ee"; ctx.fillRect(x - GAP / 2, my + 14, 1, MEMBER_H - 28); }
-    drawPhotoCircle(cxm, my + 62, 44, photos[i], (m.name || "？").slice(0, 1));
-    let np = fitPx(m.name, COL_W - 12, 31);
+    drawPhotoCircle(cxm, my + 62, COL_W() >= 400 ? 56 : 44, photos[i], (m.name || "？").slice(0, 1));
+    let np = fitPx(m.name, COL_W() - 12, COL_W() >= 400 ? 42 : 31);
     ctx.font = font(np); ctx.fillStyle = INK; ctx.textAlign = "center";
     ctx.fillText(m.name, cxm, my + 128);
-    ctx.font = font(18, 400); ctx.fillStyle = "#66707c";
+    let rp = fitPx(m.role, COL_W() - 4, 18, 400);
+    ctx.font = font(rp, 400); ctx.fillStyle = "#66707c";
     ctx.fillText(m.role, cxm, my + 156);
     ctx.textAlign = "left";
   });
@@ -425,11 +461,11 @@ function draw() {
     state.members.forEach((m, mi) => {
       const x = colX(mi);
       const entries = (state.cells[di][mi] || []).filter(e => e && e.station);
-      if (!entries.length) { drawEntry(x, y + 6, COL_W, ROW_H - 12, null); return; }
+      if (!entries.length) { drawEntry(x, y + 6, COL_W(), ROW_H - 12, null); return; }
       const eh = (ROW_H - 12) / entries.length;
       entries.forEach((e, ei) => {
-        drawEntry(x, y + 6 + ei * eh, COL_W, eh, e, entries.length === 1 ? 26 : 0);
-        if (ei > 0) { ctx.strokeStyle = "#d9dee7"; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x + 8, y + 6 + ei * eh); ctx.lineTo(x + COL_W - 8, y + 6 + ei * eh); ctx.stroke(); ctx.setLineDash([]); }
+        drawEntry(x, y + 6 + ei * eh, COL_W(), eh, e, entries.length === 1 ? 26 : 0);
+        if (ei > 0) { ctx.strokeStyle = "#d9dee7"; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x + 8, y + 6 + ei * eh); ctx.lineTo(x + COL_W() - 8, y + 6 + ei * eh); ctx.stroke(); ctx.setLineDash([]); }
       });
     });
   });
@@ -452,8 +488,8 @@ function canvasPos(ev) {
 }
 function photoAt(p) {
   const my = HEAD_H;
-  for (let i = 0; i < 4; i++) {
-    const cxm = colX(i) + COL_W / 2;
+  for (let i = 0; i < state.members.length; i++) {
+    const cxm = colX(i) + COL_W() / 2;
     if (Math.hypot(p.x - cxm, p.y - (my + 62)) <= 48 && photos[i]) return i;
   }
   return -1;
@@ -496,6 +532,7 @@ $("clearAll").addEventListener("click", () => {
   saveState(); buildDays(); draw();
 });
 
+normalizeShape();
 buildForm();
 draw();
 </script>
