@@ -193,7 +193,7 @@ function buildTabs() {
   };
   mk("基本情報", -1);
   state.members.forEach((m, i) => mk(m.name || ("メンバー" + (i + 1)), i));
-  if (state.members.length < 6) {
+  if (state.members.length < 4) {
     const b = document.createElement("button");
     b.type = "button"; b.className = "tabbtn add"; b.textContent = "＋追加";
     b.addEventListener("click", addMember);
@@ -297,7 +297,7 @@ function baseSummary(i) {
   return "いつもの活動：" + b.map(e => (e.kind === "pm" ? "夕活 " : "朝活 ") + e.station + (e.exit ? " " + e.exit : "") + " " + (e.start || "") + "–" + (e.end || "")).join(" ／ ");
 }
 function addMember() {
-  if (state.members.length >= 6) return;
+  if (state.members.length >= 4) return;
   state.members.push({ name: "", role: "" });
   normalizeShape();
   state.modes.forEach(row => row[state.members.length - 1] = "base");
