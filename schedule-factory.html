@@ -63,15 +63,6 @@
     <label>ハッシュタグ</label>
     <input type="text" id="hashtag">
 
-    <h2>ゲスト（任意・1人）</h2>
-    <div class="member">
-      <div class="mrow">
-        <div><label>名前</label><input type="text" id="guestName"></div>
-        <div><label>肩書</label><input type="text" id="guestRole"></div>
-      </div>
-      <label>写真（なくても作れます）</label>
-      <input type="file" id="guestPhoto" accept="image/*">
-    </div>
 
     <button id="download">PNGをダウンロード</button>
     <button class="subbtn" id="resetSample" type="button">初期値に戻す</button>
@@ -101,7 +92,6 @@ const SAMPLE = {
   weekStart: "2026-11-23",
   footerNote: "※ 雨天などの事情により変更となる場合があります。詳細は各政策委員のSNSにて発信します。",
   hashtag: "#街頭活動 #国民民主党",
-  guest: { name: "", role: "" },
   members: [
     { name: "1人目の名前", role: "" },
     { name: "2人目の名前", role: "" },
@@ -137,7 +127,6 @@ function freshDefault() {
 }
 let state = loadState();
 let photos = [null, null, null, null]; // {img, dx, dy, scale}
-let guestPhoto = null;
 let selectedPhoto = 0;
 
 function loadState() {
@@ -172,11 +161,8 @@ function buildForm() {
     bindText("title", () => state.title, v => state.title = v);
     bindText("footerNote", () => state.footerNote, v => state.footerNote = v);
     bindText("hashtag", () => state.hashtag, v => state.hashtag = v);
-    bindText("guestName", () => state.guest.name, v => state.guest.name = v);
-    bindText("guestRole", () => state.guest.role, v => state.guest.role = v);
     const ws = $("weekStart");
     ws.addEventListener("change", () => { if (ws.value) { state.weekStart = ws.value; saveState(); renderPage(); draw(); } });
-    $("guestPhoto").addEventListener("change", ev => loadPhoto(ev.target.files[0], -1));
   }
   $("weekStart").value = state.weekStart;
   buildTabs();
@@ -294,6 +280,7 @@ function normalizeShape() {
   }
   state.bases.forEach(b => b.forEach(e => { if (e) delete e.on; }));
   delete state.copied;
+  delete state.guest;
   while (photos.length < n) photos.push(null);
   photos.length = n;
 }
@@ -333,7 +320,7 @@ function removeMember(i) {
   saveState(); buildForm(); draw();
 }
 function entryEditor(arr, idx, onInput) {
-  const e = arr[idx] || { station: "", exit: "", line: "", kind: idx === 1 ? "pm" : "am", start: "", end: "", guest: false };
+  const e = arr[idx] || { station: "", exit: "", line: "", kind: idx === 1 ? "pm" : "am", start: "", end: "" };
   const div = document.createElement("div"); div.className = "entry";
   div.innerHTML = `
     <div class="erow">
@@ -346,13 +333,12 @@ function entryEditor(arr, idx, onInput) {
       <div><label>区分</label><select data-f="kind"><option value="am">朝活</option><option value="pm">夕活</option></select></div>
       <div><label>開始</label><input type="time" data-f="start"></div>
       <div><label>終了</label><input type="time" data-f="end"></div>
-      <div><label class="chk"><input type="checkbox" data-f="guest"> ゲスト参加</label></div>
     </div>`;
   div.querySelectorAll("[data-f]").forEach(inp => {
     const f = inp.dataset.f;
     if (inp.type === "checkbox") inp.checked = !!e[f]; else inp.value = e[f] || "";
     inp.addEventListener("input", () => {
-      while (arr.length <= idx) arr.push({ station: "", exit: "", line: "", kind: arr.length === 1 ? "pm" : "am", start: "", end: "", guest: false });
+      while (arr.length <= idx) arr.push({ station: "", exit: "", line: "", kind: arr.length === 1 ? "pm" : "am", start: "", end: "" });
       arr[idx][f] = inp.type === "checkbox" ? inp.checked : inp.value;
       saveState(); draw();
       if (onInput) onInput();
@@ -366,7 +352,7 @@ function loadPhoto(file, idx) {
   const img = new Image();
   img.onload = () => {
     const rec = { img, dx: 0, dy: 0, scale: 1 };
-    if (idx === -1) guestPhoto = rec; else { photos[idx] = rec; selectedPhoto = idx; $("zoom").value = 100; }
+    photos[idx] = rec; selectedPhoto = idx; $("zoom").value = 100;
     draw();
   };
   img.src = url;
@@ -470,10 +456,10 @@ function drawEntry(x, y, w, h, e, padTop) {
   const stY = topY + (compact ? 52 : 82);
   let stTxt = e.station;
   const basePx = compact ? (w > 340 ? 40 : 31) : (w > 340 ? 56 : 44);
-  const pxFull = fitPx(stTxt, w - pad * 2 - (compact && e.guest ? 52 : 0), basePx);
+  const pxFull = fitPx(stTxt, w - pad * 2, basePx);
   let px = pxFull, exitMode = "none";
   if (e.exit) {
-    const pxBeside = fitPx(stTxt, w - pad * 2 - 76 - (compact && e.guest ? 52 : 0), basePx);
+    const pxBeside = fitPx(stTxt, w - pad * 2 - 76, basePx);
     if (pxBeside >= 22) { px = pxBeside; exitMode = "beside"; }
     else if (!compact) { exitMode = "below"; }
     else { px = pxBeside; exitMode = "beside"; }
@@ -493,27 +479,6 @@ function drawEntry(x, y, w, h, e, padTop) {
       roundRect(x + pad, by - 15, ew, 30, 6);
       ctx.fillStyle = "#e8eef6"; ctx.fill();
       ctx.fillStyle = LINE; ctx.fillText(e.exit, x + pad + 7, by + 1);
-    }
-  }
-  // guest pill
-  if (e.guest && state.guest.name) {
-    const label = state.guest.name;
-    if (compact) {
-      const ccx = x + w - 24, ccy = y + h - 19;
-      drawPhotoCircle(ccx, ccy, 13, guestPhoto, label.slice(0, 1));
-      ctx.beginPath(); ctx.arc(ccx, ccy, 13, 0, Math.PI * 2);
-      ctx.lineWidth = 3; ctx.strokeStyle = YELLOW; ctx.stroke();
-    } else {
-      ctx.font = font(13); const gw = ctx.measureText("GUEST").width;
-      ctx.font = font(18); const tw = ctx.measureText(label).width;
-      const pw = 36 + gw + 8 + tw + 14, ph = 34;
-      const gx = x + w - pw - 6, gy = y + h - ph - 6;
-      roundRect(gx, gy, pw, ph, ph / 2); ctx.fillStyle = NAVY; ctx.fill();
-      drawPhotoCircle(gx + ph / 2, gy + ph / 2, ph / 2 - 4, guestPhoto, label.slice(0, 1));
-      ctx.fillStyle = YELLOW; ctx.font = font(13);
-      ctx.fillText("GUEST", gx + 36, gy + ph / 2 + 1);
-      ctx.fillStyle = "#fff"; ctx.font = font(18);
-      ctx.fillText(label, gx + 36 + gw + 8, gy + ph / 2 + 1);
     }
   }
 }
