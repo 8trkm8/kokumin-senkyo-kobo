@@ -511,13 +511,26 @@ function draw() {
   ctx.textAlign = "right"; ctx.fillStyle = YELLOW; ctx.font = fontNum(24);
   ctx.fillText(dates[0].getFullYear() + " WEEKLY ACTIVITY", W - MARGIN, 34);
   ctx.textAlign = "left";
-  // title + range
-  let px = fitPx(state.title, 600, 66);
-  ctx.font = font(px); ctx.fillStyle = "#fff";
-  ctx.fillText(state.title, MARGIN, 106);
+  // title + range: the title shrinks to whatever room the date range leaves;
+  // only if the title hits its floor (44px) does the range shrink a step too.
   const last = dates[dates.length - 1];
   const range = fmtD(dates[0]) + " – " + fmtD(last);
-  ctx.font = fontNum(58); ctx.fillStyle = "#fff";
+  let rangePx = 58;
+  ctx.font = fontNum(rangePx);
+  let avail = W - MARGIN * 2 - ctx.measureText(range).width - 24;
+  let px = fitPx(state.title, avail, 66);
+  if (px <= 44) {
+    while (rangePx > 44) {
+      rangePx -= 2;
+      ctx.font = fontNum(rangePx);
+      avail = W - MARGIN * 2 - ctx.measureText(range).width - 24;
+      px = fitPx(state.title, avail, 66);
+      if (px > 44) break;
+    }
+  }
+  ctx.font = font(px); ctx.fillStyle = "#fff";
+  ctx.fillText(state.title, MARGIN, 106);
+  ctx.font = fontNum(rangePx); ctx.fillStyle = "#fff";
   ctx.textAlign = "right";
   ctx.fillText(range, W - MARGIN, 106);
   ctx.textAlign = "left";
