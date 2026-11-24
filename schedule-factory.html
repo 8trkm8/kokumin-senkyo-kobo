@@ -315,7 +315,7 @@ function removeMember(i) {
   saveState(); buildForm(); draw();
 }
 function entryEditor(arr, idx, onInput) {
-  const e = arr[idx] || { station: "", exit: "", line: "", kind: "am", start: "", end: "", guest: false };
+  const e = arr[idx] || { station: "", exit: "", line: "", kind: idx === 1 ? "pm" : "am", start: "", end: "", guest: false };
   const div = document.createElement("div"); div.className = "entry";
   div.innerHTML = `
     <div class="erow">
@@ -334,7 +334,7 @@ function entryEditor(arr, idx, onInput) {
     const f = inp.dataset.f;
     if (inp.type === "checkbox") inp.checked = !!e[f]; else inp.value = e[f] || "";
     inp.addEventListener("input", () => {
-      while (arr.length <= idx) arr.push({ station: "", exit: "", line: "", kind: "am", start: "", end: "", guest: false });
+      while (arr.length <= idx) arr.push({ station: "", exit: "", line: "", kind: arr.length === 1 ? "pm" : "am", start: "", end: "", guest: false });
       arr[idx][f] = inp.type === "checkbox" ? inp.checked : inp.value;
       saveState(); draw();
       if (onInput) onInput();
@@ -505,7 +505,7 @@ function draw() {
   ctx.fillStyle = "#fff"; ctx.font = font(24);
   ctx.fillText(state.branch + " 週間活動予定", MARGIN, 34);
   ctx.textAlign = "right"; ctx.fillStyle = YELLOW; ctx.font = font(24);
-  ctx.fillText("WEEKLY ACTIVITY", W - MARGIN, 34);
+  ctx.fillText(dates[0].getFullYear() + " WEEKLY ACTIVITY", W - MARGIN, 34);
   ctx.textAlign = "left";
   // title + range
   let px = fitPx(state.title, 600, 66);
@@ -514,11 +514,8 @@ function draw() {
   const last = dates[4];
   const range = fmtD(dates[0]) + " – " + fmtD(last);
   ctx.font = font(58); ctx.fillStyle = "#fff";
-  const rangeW = ctx.measureText(range).width;
   ctx.textAlign = "right";
   ctx.fillText(range, W - MARGIN, 106);
-  ctx.font = font(30, 400); ctx.fillStyle = "#cdd7ea";
-  ctx.fillText(dates[0].getFullYear() + "/", W - MARGIN - rangeW - 8, 118);
   ctx.textAlign = "left";
   /* member header row */
   const my = HEAD_H;
@@ -526,13 +523,14 @@ function draw() {
   state.members.forEach((m, i) => {
     const x = colX(i), cxm = x + COL_W() / 2;
     if (i > 0) { ctx.fillStyle = "#e3e7ee"; ctx.fillRect(x - GAP / 2, my + 14, 1, MEMBER_H - 28); }
-    drawPhotoCircle(cxm, my + 62, COL_W() >= 400 ? 56 : 44, photos[i], (m.name || "？").slice(0, 1));
-    let np = fitPx(m.name, COL_W() - 12, COL_W() >= 400 ? 42 : 31);
+    const wide = COL_W() >= 400;
+    drawPhotoCircle(cxm, wide ? my + 56 : my + 62, wide ? 50 : 44, photos[i], (m.name || "？").slice(0, 1));
+    let np = fitPx(m.name, COL_W() - 12, wide ? 42 : 31);
     ctx.font = font(np); ctx.fillStyle = INK; ctx.textAlign = "center";
-    ctx.fillText(m.name, cxm, my + 128);
+    ctx.fillText(m.name, cxm, wide ? my + 130 : my + 128);
     let rp = fitPx(m.role, COL_W() - 4, 18, 400);
     ctx.font = font(rp, 400); ctx.fillStyle = "#66707c";
-    ctx.fillText(m.role, cxm, my + 156);
+    ctx.fillText(m.role, cxm, wide ? my + 162 : my + 156);
     ctx.textAlign = "left";
   });
   ctx.fillStyle = NAVY; ctx.font = font(20); ctx.textAlign = "center";
@@ -583,7 +581,8 @@ function photoAt(p) {
   const my = HEAD_H;
   for (let i = 0; i < state.members.length; i++) {
     const cxm = colX(i) + COL_W() / 2;
-    if (Math.hypot(p.x - cxm, p.y - (my + 62)) <= 48 && photos[i]) return i;
+    const wide = COL_W() >= 400;
+    if (Math.hypot(p.x - cxm, p.y - (wide ? my + 56 : my + 62)) <= (wide ? 54 : 48) && photos[i]) return i;
   }
   return -1;
 }
