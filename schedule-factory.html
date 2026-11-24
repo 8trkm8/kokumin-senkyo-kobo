@@ -47,7 +47,7 @@
   <div class="form">
     <h1>週間活動予定表メーカー</h1>
     <p class="note">入力すると右の画像がその場で作られます。写真はこの端末の中だけで処理され、どこにも送信されません。できあがったら「PNGをダウンロード」を押してください（1080×1350）。入力内容（写真以外）はこの端末に保存され、次回開いたときに復元されます。</p>
-    <p class="note"><strong>楽な入力方法：</strong>まず各メンバーの「いつもの活動」（いつもの駅・時間）を入れておくと、各日の欄は初期状態でその内容が反映されます。違う日だけ「この日は変更」に切り替えて直し、休みの日は「お休み」を選んでください。</p>
+    <p class="note"><strong>楽な入力方法：</strong>まず各メンバーの「いつもの活動」（いつもの駅・時間）を入れておくと、各日の欄は初期状態でその内容が反映されます。違う日だけ「この日は変更」に切り替えて直し、休みの日は「お休み」を選んでください。「いつもの活動」の各件には「使う」チェックがあり、外すとその活動は反映されません。「この日は変更」では「いつもの活動の内容をコピーして直す」にチェックすると、いつもの内容が入るので、時間だけ直すような使い方もできます。</p>
 
     <div class="tabs" id="tabs"></div>
     <div id="pageBasic">
@@ -228,8 +228,8 @@ function renderPage() {
   bl.textContent = "いつもの活動（平日の基本パターン・最大2件）";
   div.appendChild(bl);
   const refreshSm = () => document.querySelectorAll('[data-base-summary="' + i + '"]').forEach(el => el.textContent = baseSummary(i));
-  div.appendChild(entryEditor(state.bases[i], 0, refreshSm));
-  div.appendChild(entryEditor(state.bases[i], 1, refreshSm));
+  div.appendChild(entryEditor(state.bases[i], 0, refreshSm, true));
+  div.appendChild(entryEditor(state.bases[i], 1, refreshSm, true));
   if (state.members.length > 1) {
     const del = document.createElement("button");
     del.type = "button"; del.className = "subbtn"; del.textContent = "このメンバーを削除";
@@ -260,6 +260,24 @@ function renderPage() {
       const sm = document.createElement("div"); sm.className = "note"; sm.textContent = "この日はお休み（画像では「―」表示）";
       cell.appendChild(sm);
     } else {
+      const cpLabel = document.createElement("label");
+      cpLabel.className = "chk";
+      const cp = document.createElement("input");
+      cp.type = "checkbox";
+      cp.checked = !!(state.copied && state.copied[di] && state.copied[di][i]);
+      cp.addEventListener("change", () => {
+        if (cp.checked) {
+          const src = (state.bases[i] || []).filter(e => e && e.station && e.on !== false).slice(0, 2);
+          state.cells[di][i] = JSON.parse(JSON.stringify(src));
+          state.copied[di][i] = true;
+        } else {
+          state.copied[di][i] = false;
+        }
+        saveState(); renderPage(); draw();
+      });
+      cpLabel.appendChild(cp);
+      cpLabel.appendChild(document.createTextNode(" いつもの活動の内容をコピーして直す"));
+      cell.appendChild(cpLabel);
       cell.appendChild(entryEditor(state.cells[di][i], 0));
       cell.appendChild(entryEditor(state.cells[di][i], 1));
     }
@@ -282,17 +300,23 @@ function normalizeShape() {
   }
   while (state.bases.length < n) state.bases.push([]);
   state.bases.length = n;
+  state.copied = state.copied || [];
+  for (let d = 0; d < 5; d++) {
+    state.copied[d] = state.copied[d] || [];
+    while (state.copied[d].length < n) state.copied[d].push(false);
+    state.copied[d].length = n;
+  }
   while (photos.length < n) photos.push(null);
   photos.length = n;
 }
 function effectiveEntries(d, i) {
   const mode = (state.modes && state.modes[d] && state.modes[d][i]) || "custom";
   if (mode === "off") return [];
-  const src = mode === "base" ? (state.bases[i] || []) : (state.cells[d][i] || []);
-  return src.filter(e => e && e.station);
+  if (mode === "base") return (state.bases[i] || []).filter(e => e && e.station && e.on !== false);
+  return (state.cells[d][i] || []).filter(e => e && e.station);
 }
 function baseSummary(i) {
-  const b = (state.bases[i] || []).filter(e => e && e.station);
+  const b = (state.bases[i] || []).filter(e => e && e.station && e.on !== false);
   if (!b.length) return "いつもの活動：未設定（メンバー欄で入力）";
   return "いつもの活動：" + b.map(e => (e.kind === "pm" ? "夕活 " : "朝活 ") + e.station + (e.exit ? " " + e.exit : "") + " " + (e.start || "") + "–" + (e.end || "")).join(" ／ ");
 }
@@ -309,13 +333,14 @@ function removeMember(i) {
   state.members.splice(i, 1);
   state.cells.forEach(row => row.splice(i, 1));
   if (state.modes) state.modes.forEach(row => row.splice(i, 1));
+  if (state.copied) state.copied.forEach(row => row.splice(i, 1));
   if (state.bases) state.bases.splice(i, 1);
   photos.splice(i, 1);
   if (activeTab >= state.members.length) activeTab = state.members.length - 1;
   saveState(); buildForm(); draw();
 }
-function entryEditor(arr, idx, onInput) {
-  const e = arr[idx] || { station: "", exit: "", line: "", kind: idx === 1 ? "pm" : "am", start: "", end: "", guest: false };
+function entryEditor(arr, idx, onInput, showOn) {
+  const e = arr[idx] || { station: "", exit: "", line: "", kind: idx === 1 ? "pm" : "am", start: "", end: "", guest: false, on: true };
   const div = document.createElement("div"); div.className = "entry";
   div.innerHTML = `
     <div class="erow">
@@ -329,12 +354,13 @@ function entryEditor(arr, idx, onInput) {
       <div><label>開始</label><input type="time" data-f="start"></div>
       <div><label>終了</label><input type="time" data-f="end"></div>
       <div><label class="chk"><input type="checkbox" data-f="guest"> ゲスト参加</label></div>
+      ${showOn ? '<div><label class="chk"><input type="checkbox" data-f="on"> 使う</label></div>' : ""}
     </div>`;
   div.querySelectorAll("[data-f]").forEach(inp => {
     const f = inp.dataset.f;
-    if (inp.type === "checkbox") inp.checked = !!e[f]; else inp.value = e[f] || "";
+    if (inp.type === "checkbox") inp.checked = f === "on" ? e[f] !== false : !!e[f]; else inp.value = e[f] || "";
     inp.addEventListener("input", () => {
-      while (arr.length <= idx) arr.push({ station: "", exit: "", line: "", kind: arr.length === 1 ? "pm" : "am", start: "", end: "", guest: false });
+      while (arr.length <= idx) arr.push({ station: "", exit: "", line: "", kind: arr.length === 1 ? "pm" : "am", start: "", end: "", guest: false, on: true });
       arr[idx][f] = inp.type === "checkbox" ? inp.checked : inp.value;
       saveState(); draw();
       if (onInput) onInput();
@@ -624,6 +650,7 @@ $("clearAll").addEventListener("click", () => {
   const n = state.members.length;
   state.cells = Array.from({ length: 5 }, () => Array.from({ length: n }, () => []));
   if (state.modes) state.modes = state.modes.map(row => row.map(() => "custom"));
+  if (state.copied) state.copied = state.copied.map(row => row.map(() => false));
   saveState(); renderPage(); draw();
 });
 
