@@ -357,6 +357,7 @@ function loadPhoto(file, idx) {
 /* ---------- drawing ---------- */
 const cv = $("cv"), ctx = cv.getContext("2d");
 function font(px, wgt) { return (wgt || 700) + " " + px + "px 'Hiragino Kaku Gothic ProN','Hiragino Sans','Noto Sans JP','Yu Gothic',sans-serif"; }
+function fontNum(px, wgt) { return (wgt || 700) + " " + px + "px Arial, Helvetica, 'Helvetica Neue', sans-serif"; }
 function fitPx(text, maxW, base, wgt) {
   let px = base; ctx.font = font(px, wgt);
   while (px > 12 && ctx.measureText(text).width > maxW) { px -= 2; ctx.font = font(px, wgt); }
@@ -441,7 +442,7 @@ function drawEntry(x, y, w, h, e, padTop) {
   const iconCx = cx + iconR, iconCy = topY + badgeH / 2;
   if (e.kind === "pm") drawMoon(iconCx, iconCy, iconR, "#e39a00"); else drawSun(iconCx, iconCy, iconR, "#f07d00");
   cx += iconR * 2 + 7;
-  ctx.font = font(compact ? 19 : (w > 340 ? 27 : 24), 400); ctx.fillStyle = "#3d4753";
+  ctx.font = fontNum(compact ? 19 : (w > 340 ? 27 : 24), 400); ctx.fillStyle = "#3d4753";
   const timeTxt = (e.start || "") + (e.end ? "–" + e.end : "");
   ctx.fillText(timeTxt, cx, topY + badgeH / 2 + 1);
   // row 2: station (+ exit chip), well clear of row 1
@@ -504,7 +505,7 @@ function draw() {
   ctx.textBaseline = "middle"; ctx.textAlign = "left";
   ctx.fillStyle = "#fff"; ctx.font = font(24);
   ctx.fillText(state.branch + " 週間活動予定", MARGIN, 34);
-  ctx.textAlign = "right"; ctx.fillStyle = YELLOW; ctx.font = font(24);
+  ctx.textAlign = "right"; ctx.fillStyle = YELLOW; ctx.font = fontNum(24);
   ctx.fillText(dates[0].getFullYear() + " WEEKLY ACTIVITY", W - MARGIN, 34);
   ctx.textAlign = "left";
   // title + range
@@ -513,7 +514,7 @@ function draw() {
   ctx.fillText(state.title, MARGIN, 106);
   const last = dates[4];
   const range = fmtD(dates[0]) + " – " + fmtD(last);
-  ctx.font = font(58); ctx.fillStyle = "#fff";
+  ctx.font = fontNum(58); ctx.fillStyle = "#fff";
   ctx.textAlign = "right";
   ctx.fillText(range, W - MARGIN, 106);
   ctx.textAlign = "left";
@@ -545,7 +546,7 @@ function draw() {
     // date cell
     ctx.fillStyle = NAVY2; ctx.fillRect(MARGIN, y + 8, DATE_W, ROW_H - 16);
     ctx.fillStyle = "#fff"; ctx.textAlign = "center";
-    ctx.font = font(30); ctx.fillText(fmtD(d), MARGIN + DATE_W / 2, y + ROW_H / 2 - 18);
+    ctx.font = fontNum(30); ctx.fillText(fmtD(d), MARGIN + DATE_W / 2, y + ROW_H / 2 - 18);
     ctx.font = font(19); ctx.fillStyle = YELLOW;
     ctx.fillText(WD[d.getDay()], MARGIN + DATE_W / 2, y + ROW_H / 2 + 16);
     ctx.textAlign = "left";
