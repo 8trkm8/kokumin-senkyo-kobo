@@ -23,9 +23,9 @@
   .member .mrow { display: flex; gap: 8px; }
   .member .mrow > div { flex: 1; }
   .day { border: 1px solid #e2e6ec; border-radius: 10px; margin-top: 12px; overflow: hidden; }
-  .day > .dhead { background: #16295e; color: #fff; font-weight: 700; font-size: 14px; padding: 7px 12px; }
+  .day > .dhead { background: #043E80; color: #fff; font-weight: 700; font-size: 14px; padding: 7px 12px; }
   .cell { border-top: 1px solid #eef1f5; padding: 8px 12px 10px; }
-  .cell .cname { font-size: 13px; font-weight: 700; color: #16295e; }
+  .cell .cname { font-size: 13px; font-weight: 700; color: #043E80; }
   .entry { background: #f8f9fb; border-radius: 8px; padding: 8px; margin-top: 6px; }
   .entry .erow { display: flex; gap: 6px; flex-wrap: wrap; align-items: flex-end; }
   .entry .erow > div { flex: 0 0 auto; }
@@ -34,8 +34,8 @@
   .entry label { margin: 4px 0 2px; font-size: 11px; }
   .chk { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; margin-top: 6px; }
   .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 4px; }
-  .tabbtn { flex: 1 1 auto; padding: 9px 8px; border: 1.5px solid #16295e; background: #fff; color: #16295e; border-radius: 999px; font-weight: 700; font-size: 13px; cursor: pointer; }
-  .tabbtn.on { background: #16295e; color: #fff; }
+  .tabbtn { flex: 1 1 auto; padding: 9px 8px; border: 1.5px solid #043E80; background: #fff; color: #043E80; border-radius: 999px; font-weight: 700; font-size: 13px; cursor: pointer; }
+  .tabbtn.on { background: #043E80; color: #fff; }
   .tabbtn.add { border-style: dashed; }
   .preview { flex: 0 1 430px; text-align: center; position: sticky; top: 12px; }
   canvas { width: 100%; max-width: 430px; height: auto; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,.15); background: #fff; touch-action: none; }
@@ -74,7 +74,7 @@
     </div>
 
     <button id="download">PNGをダウンロード</button>
-    <button class="subbtn" id="resetSample" type="button">サンプルの内容に戻す</button>
+    <button class="subbtn" id="resetSample" type="button">初期値に戻す</button>
     <button class="subbtn" id="clearAll" type="button">予定を全部空にする</button>
     </div>
     <div id="pageMember"></div>
@@ -89,71 +89,52 @@
 <script>
 "use strict";
 const W = 1080, H = 1350;
-const NAVY = "#16295e", NAVY2 = "#0e1e49", YELLOW = "#f5b500", INK = "#1c2733";
-const AM = "#e8541d", PM = "#7a4fd0", LINE = "#31517a";
+const NAVY = "#043E80", NAVY2 = "#032a56", YELLOW = "#f5b500", INK = "#1c2733";
+const AM = "#e8541d", PM = "#7a4fd0", LINE = "#043E80";
 const WD = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
 const WDJP = ["日","月","火","水","木","金","土"];
 
 const SAMPLE = {
-  branch: "国民民主党 東京都第4区総支部",
-  title: "大田の声を聴く。",
-  kicker: "国民民主党東京第4区 週間活動予定",
+  branch: "国民民主党 東京都第〇〇区総支部",
+  title: "〇〇市の声を聴く",
+  kicker: "",
   weekStart: "2026-11-23",
   footerNote: "※ 雨天などの事情により変更となる場合があります。詳細は各政策委員のSNSにて発信します。",
-  hashtag: "#東京第4区 #国民民主党",
+  hashtag: "#街頭活動 #国民民主党",
+  guest: { name: "", role: "" },
   members: [
-    { name: "おくがき敦子", role: "区政担当政策委員" },
-    { name: "野上たいき", role: "区政担当政策委員" },
-    { name: "あくつたけし", role: "区政担当政策委員" },
-    { name: "山崎いくこ", role: "区政担当政策委員" }
+    { name: "1人目の名前", role: "" },
+    { name: "2人目の名前", role: "" },
+    { name: "3人目の名前", role: "" }
   ],
-  guest: { name: "福井ゆうた", role: "東京都議会議員" },
   cells: [
-    [ [], [], [], [] ],
-    [
-      [ { station: "武蔵新田駅", exit: "", line: "東急", kind: "am", start: "7:00", end: "8:30", guest: false } ],
-      [ { station: "池上駅", exit: "", line: "東急", kind: "am", start: "7:00", end: "8:30", guest: false },
-        { station: "石川台駅", exit: "", line: "東急", kind: "pm", start: "15:00", end: "16:30", guest: true } ],
-      [ { station: "大森駅", exit: "西口", line: "JR", kind: "am", start: "7:00", end: "9:00", guest: false },
-        { station: "大森駅", exit: "西口", line: "JR", kind: "pm", start: "18:00", end: "20:00", guest: false } ],
-      [ { station: "蒲田駅", exit: "東口", line: "JR", kind: "am", start: "7:00", end: "8:30", guest: false } ]
-    ],
-    [
-      [ { station: "下丸子駅", exit: "", line: "東急", kind: "am", start: "7:00", end: "8:30", guest: false } ],
-      [ { station: "馬込駅", exit: "", line: "都営", kind: "am", start: "7:00", end: "8:30", guest: false },
-        { station: "大岡山駅", exit: "", line: "東急", kind: "pm", start: "15:30", end: "17:00", guest: false } ],
-      [ { station: "大森駅", exit: "北口", line: "JR", kind: "am", start: "7:00", end: "9:00", guest: false },
-        { station: "平和島駅", exit: "", line: "京急", kind: "pm", start: "18:00", end: "20:00", guest: true } ],
-      [ { station: "京急蒲田駅", exit: "", line: "京急", kind: "am", start: "7:00", end: "8:30", guest: false } ]
-    ],
-    [
-      [ { station: "鵜の木駅", exit: "", line: "東急", kind: "am", start: "7:00", end: "8:30", guest: false } ],
-      [ { station: "長原駅", exit: "", line: "東急", kind: "am", start: "7:00", end: "8:30", guest: false } ],
-      [ { station: "大森駅", exit: "東口", line: "JR", kind: "am", start: "7:00", end: "8:30", guest: false } ],
-      [ { station: "蒲田駅", exit: "西口", line: "JR", kind: "am", start: "7:00", end: "8:30", guest: true } ]
-    ],
-    [
-      [ { station: "矢口渡駅", exit: "", line: "東急", kind: "am", start: "6:30", end: "8:00", guest: true } ],
-      [ { station: "西馬込駅", exit: "", line: "都営", kind: "am", start: "7:00", end: "8:30", guest: false },
-        { station: "洗足池駅", exit: "", line: "東急", kind: "pm", start: "17:00", end: "18:30", guest: false } ],
-      [ { station: "梅屋敷駅", exit: "", line: "京急", kind: "am", start: "7:00", end: "8:30", guest: false } ],
-      [ { station: "蒲田駅", exit: "南口", line: "JR", kind: "am", start: "7:00", end: "8:30", guest: false } ]
-    ]
+    [[], [], []],
+    [[], [], []],
+    [[], [], []],
+    [[], [], []],
+    [[], [], []]
   ],
-  "bases": [
-    [{ "station": "下丸子駅", "exit": "", "line": "東急", "kind": "am", "start": "07:00", "end": "08:30", "guest": false }],
-    [{ "station": "蒲田駅", "exit": "西口", "line": "JR", "kind": "am", "start": "07:00", "end": "08:30", "guest": false }],
-    [{ "station": "蒲田駅", "exit": "東口", "line": "JR", "kind": "am", "start": "07:00", "end": "08:00", "guest": false }],
-    [{ "station": "蒲田駅", "exit": "東口", "line": "JR", "kind": "am", "start": "07:00", "end": "08:30", "guest": false }]
-  ],
-  "modes": [
-    ["custom", "custom", "custom", "custom"],
-    ["custom", "custom", "custom", "custom"],
-    ["custom", "custom", "custom", "custom"],
-    ["custom", "custom", "custom", "custom"],
-    ["custom", "custom", "custom", "custom"]
+  bases: [[], [], []],
+  modes: [
+    ["base", "base", "base"],
+    ["base", "base", "base"],
+    ["base", "base", "base"],
+    ["base", "base", "base"],
+    ["base", "base", "base"]
   ]
 };
+function mondayOfThisWeek() {
+  const d = new Date();
+  const back = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - back);
+  const m = String(d.getMonth() + 1).padStart(2, "0"), dd = String(d.getDate()).padStart(2, "0");
+  return d.getFullYear() + "-" + m + "-" + dd;
+}
+function freshDefault() {
+  const s = JSON.parse(JSON.stringify(SAMPLE));
+  s.weekStart = mondayOfThisWeek();
+  return s;
+}
 let state = loadState();
 let photos = [null, null, null, null]; // {img, dx, dy, scale}
 let guestPhoto = null;
@@ -164,7 +145,7 @@ function loadState() {
     const raw = localStorage.getItem("scheduleFactoryV1");
     if (raw) { const s = JSON.parse(raw); if (s && s.cells && s.members) return s; }
   } catch (e) {}
-  return JSON.parse(JSON.stringify(SAMPLE));
+  return freshDefault();
 }
 function saveState() {
   try { localStorage.setItem("scheduleFactoryV1", JSON.stringify(state)); } catch (e) {}
@@ -430,7 +411,7 @@ function drawMoon(cx, cy, r, color) {
   ctx.save(); ctx.fillStyle = color;
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.arc(cx + r * 0.52, cy - r * 0.2, r * 0.8, 0, Math.PI * 2);
+  ctx.arc(cx + r * 0.22, cy - r * 0.08, r * 0.85, 0, Math.PI * 2);
   ctx.fill("evenodd");
   ctx.restore();
 }
@@ -466,16 +447,31 @@ function drawEntry(x, y, w, h, e, padTop) {
   // row 2: station (+ exit chip), well clear of row 1
   const stY = topY + (compact ? 52 : 82);
   let stTxt = e.station;
-  let px = fitPx(stTxt, w - pad * 2 - (e.exit ? 76 : 0) - (compact && e.guest ? 52 : 0), compact ? (w > 340 ? 40 : 31) : (w > 340 ? 56 : 44));
+  const basePx = compact ? (w > 340 ? 40 : 31) : (w > 340 ? 56 : 44);
+  const pxFull = fitPx(stTxt, w - pad * 2 - (compact && e.guest ? 52 : 0), basePx);
+  let px = pxFull, exitMode = "none";
+  if (e.exit) {
+    const pxBeside = fitPx(stTxt, w - pad * 2 - 76 - (compact && e.guest ? 52 : 0), basePx);
+    if (pxBeside >= 22) { px = pxBeside; exitMode = "beside"; }
+    else if (!compact) { exitMode = "below"; }
+    else { px = pxBeside; exitMode = "beside"; }
+  }
   ctx.font = font(px); ctx.fillStyle = INK;
   ctx.fillText(stTxt, x + pad, stY);
   const stW = ctx.measureText(stTxt).width;
   if (e.exit) {
     ctx.font = font(compact ? 16 : 20);
     const ew = ctx.measureText(e.exit).width + 14;
-    roundRect(x + pad + stW + 9, stY - 15, ew, 30, 6);
-    ctx.fillStyle = "#e8eef6"; ctx.fill();
-    ctx.fillStyle = LINE; ctx.fillText(e.exit, x + pad + stW + 16, stY + 1);
+    if (exitMode === "beside") {
+      roundRect(x + pad + stW + 9, stY - 15, ew, 30, 6);
+      ctx.fillStyle = "#e8eef6"; ctx.fill();
+      ctx.fillStyle = LINE; ctx.fillText(e.exit, x + pad + stW + 16, stY + 1);
+    } else if (exitMode === "below") {
+      const by = stY + Math.round(px * 0.72) + 20;
+      roundRect(x + pad, by - 15, ew, 30, 6);
+      ctx.fillStyle = "#e8eef6"; ctx.fill();
+      ctx.fillStyle = LINE; ctx.fillText(e.exit, x + pad + 7, by + 1);
+    }
   }
   // guest pill
   if (e.guest && state.guest.name) {
@@ -623,7 +619,7 @@ $("download").addEventListener("click", () => {
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }, "image/png");
 });
-$("resetSample").addEventListener("click", () => { state = JSON.parse(JSON.stringify(SAMPLE)); activeTab = -1; saveState(); buildForm(); draw(); });
+$("resetSample").addEventListener("click", () => { state = freshDefault(); activeTab = -1; saveState(); buildForm(); draw(); });
 $("clearAll").addEventListener("click", () => {
   const n = state.members.length;
   state.cells = Array.from({ length: 5 }, () => Array.from({ length: n }, () => []));
