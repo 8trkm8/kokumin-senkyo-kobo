@@ -33,6 +33,10 @@
   .entry input[type=text] { width: 100%; }
   .entry label { margin: 4px 0 2px; font-size: 11px; }
   .chk { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; margin-top: 6px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 4px; }
+  .tabbtn { flex: 1 1 auto; padding: 9px 8px; border: 1.5px solid #16295e; background: #fff; color: #16295e; border-radius: 999px; font-weight: 700; font-size: 13px; cursor: pointer; }
+  .tabbtn.on { background: #16295e; color: #fff; }
+  .tabbtn.add { border-style: dashed; }
   .preview { flex: 0 1 430px; text-align: center; position: sticky; top: 12px; }
   canvas { width: 100%; max-width: 430px; height: auto; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,.15); background: #fff; touch-action: none; }
   .preview p { font-size: 12px; color: #666; line-height: 1.6; }
@@ -45,6 +49,8 @@
     <p class="note">入力すると右の画像がその場で作られます。写真はこの端末の中だけで処理され、どこにも送信されません。できあがったら「PNGをダウンロード」を押してください（1080×1350）。入力内容（写真以外）はこの端末に保存され、次回開いたときに復元されます。</p>
     <p class="note"><strong>楽な入力方法：</strong>まず各メンバーの「いつもの活動」（いつもの駅・時間）を入れておくと、各日の欄は初期状態でその内容が反映されます。違う日だけ「この日は変更」に切り替えて直し、休みの日は「お休み」を選んでください。</p>
 
+    <div class="tabs" id="tabs"></div>
+    <div id="pageBasic">
     <h2>基本情報</h2>
     <label>総支部名</label>
     <input type="text" id="branch">
@@ -59,9 +65,6 @@
     <label>ハッシュタグ</label>
     <input type="text" id="hashtag">
 
-    <h2>メンバー（1〜6人）</h2>
-    <div id="members"></div>
-
     <h2>ゲスト（任意・1人）</h2>
     <div class="member">
       <div class="mrow">
@@ -72,12 +75,11 @@
       <input type="file" id="guestPhoto" accept="image/*">
     </div>
 
-    <h2>予定（1マス最大2件）</h2>
-    <div id="days"></div>
-
     <button id="download">PNGをダウンロード</button>
     <button class="subbtn" id="resetSample" type="button">サンプルの内容に戻す</button>
     <button class="subbtn" id="clearAll" type="button">予定を全部空にする</button>
+    </div>
+    <div id="pageMember"></div>
   </div>
   <div class="preview">
     <canvas id="cv" width="1080" height="1350"></canvas>
@@ -183,51 +185,109 @@ function bindText(id, get, set) {
   const el = $(id); el.value = get();
   el.addEventListener("input", () => { set(el.value); saveState(); draw(); });
 }
+let activeTab = -1; // -1 = 基本情報タブ, 0.. = メンバーのタブ
 function buildForm() {
-  bindText("branch", () => state.branch, v => state.branch = v);
-  bindText("title", () => state.title, v => state.title = v);
-  bindText("kicker", () => state.kicker, v => state.kicker = v);
-  bindText("footerNote", () => state.footerNote, v => state.footerNote = v);
-  bindText("hashtag", () => state.hashtag, v => state.hashtag = v);
-  bindText("guestName", () => state.guest.name, v => state.guest.name = v);
-  bindText("guestRole", () => state.guest.role, v => state.guest.role = v);
-  const ws = $("weekStart"); ws.value = state.weekStart;
-  ws.addEventListener("change", () => { if (ws.value) { state.weekStart = ws.value; saveState(); buildDays(); draw(); } });
-
-  const mw = $("members"); mw.innerHTML = "";
-  state.members.forEach((m, i) => {
-    const div = document.createElement("div"); div.className = "member";
-    div.innerHTML = `<div class="mrow">
-      <div><label>名前</label><input type="text" data-m="${i}" data-f="name"></div>
-      <div><label>肩書</label><input type="text" data-m="${i}" data-f="role"></div></div>
-      <label>写真（なくても作れます）</label><input type="file" accept="image/*" data-photo="${i}">`;
-    mw.appendChild(div);
-    div.querySelectorAll("input[type=text]").forEach(inp => {
-      inp.value = m[inp.dataset.f];
-      inp.addEventListener("input", () => { state.members[i][inp.dataset.f] = inp.value; saveState(); buildDays(); draw(); });
-    });
-    div.querySelector("input[type=file]").addEventListener("change", ev => loadPhoto(ev.target.files[0], i));
-    const bl = document.createElement("label");
-    bl.textContent = "いつもの活動（平日の基本パターン・最大2件）";
-    div.appendChild(bl);
-    const refreshSm = () => document.querySelectorAll('[data-base-summary="' + i + '"]').forEach(el => el.textContent = baseSummary(i));
-    div.appendChild(entryEditor(state.bases[i], 0, refreshSm));
-    div.appendChild(entryEditor(state.bases[i], 1, refreshSm));
-    if (state.members.length > 1) {
-      const del = document.createElement("button");
-      del.type = "button"; del.className = "subbtn"; del.textContent = "このメンバーを削除";
-      del.addEventListener("click", () => removeMember(i));
-      div.appendChild(del);
-    }
-  });
-  if (state.members.length < 6) {
-    const add = document.createElement("button");
-    add.type = "button"; add.className = "subbtn"; add.textContent = "＋ メンバーを追加（最大6人）";
-    add.addEventListener("click", addMember);
-    mw.appendChild(add);
+  if (!document.body.dataset.basicBound) {
+    document.body.dataset.basicBound = "1";
+    bindText("branch", () => state.branch, v => state.branch = v);
+    bindText("title", () => state.title, v => state.title = v);
+    bindText("kicker", () => state.kicker, v => state.kicker = v);
+    bindText("footerNote", () => state.footerNote, v => state.footerNote = v);
+    bindText("hashtag", () => state.hashtag, v => state.hashtag = v);
+    bindText("guestName", () => state.guest.name, v => state.guest.name = v);
+    bindText("guestRole", () => state.guest.role, v => state.guest.role = v);
+    const ws = $("weekStart");
+    ws.addEventListener("change", () => { if (ws.value) { state.weekStart = ws.value; saveState(); renderPage(); draw(); } });
+    $("guestPhoto").addEventListener("change", ev => loadPhoto(ev.target.files[0], -1));
   }
-  if (!$("guestPhoto").dataset.bound) { $("guestPhoto").dataset.bound = "1"; $("guestPhoto").addEventListener("change", ev => loadPhoto(ev.target.files[0], -1)); }
-  buildDays();
+  $("weekStart").value = state.weekStart;
+  buildTabs();
+  renderPage();
+}
+function buildTabs() {
+  const tb = $("tabs"); tb.innerHTML = "";
+  const mk = (label, idx) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "tabbtn" + (activeTab === idx ? " on" : "");
+    b.textContent = label;
+    b.addEventListener("click", () => { activeTab = idx; buildTabs(); renderPage(); });
+    tb.appendChild(b);
+  };
+  mk("基本情報", -1);
+  state.members.forEach((m, i) => mk(m.name || ("メンバー" + (i + 1)), i));
+  if (state.members.length < 6) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "tabbtn add"; b.textContent = "＋追加";
+    b.addEventListener("click", addMember);
+    tb.appendChild(b);
+  }
+}
+function renderPage() {
+  const basic = $("pageBasic"), mp = $("pageMember");
+  if (activeTab < 0 || activeTab >= state.members.length) {
+    basic.style.display = ""; mp.style.display = "none"; mp.innerHTML = "";
+    return;
+  }
+  basic.style.display = "none"; mp.style.display = "";
+  const i = activeTab, m = state.members[i];
+  mp.innerHTML = "";
+  const div = document.createElement("div"); div.className = "member";
+  div.innerHTML = `<div class="mrow">
+      <div><label>名前</label><input type="text" data-f="name"></div>
+      <div><label>肩書</label><input type="text" data-f="role"></div></div>
+      <label>写真（なくても作れます）</label><input type="file" accept="image/*">`;
+  mp.appendChild(div);
+  div.querySelectorAll("input[type=text]").forEach(inp => {
+    inp.value = m[inp.dataset.f];
+    inp.addEventListener("input", () => {
+      state.members[i][inp.dataset.f] = inp.value;
+      saveState(); draw();
+      if (inp.dataset.f === "name") buildTabs();
+    });
+  });
+  div.querySelector("input[type=file]").addEventListener("change", ev => loadPhoto(ev.target.files[0], i));
+  const bl = document.createElement("label");
+  bl.textContent = "いつもの活動（平日の基本パターン・最大2件）";
+  div.appendChild(bl);
+  const refreshSm = () => document.querySelectorAll('[data-base-summary="' + i + '"]').forEach(el => el.textContent = baseSummary(i));
+  div.appendChild(entryEditor(state.bases[i], 0, refreshSm));
+  div.appendChild(entryEditor(state.bases[i], 1, refreshSm));
+  if (state.members.length > 1) {
+    const del = document.createElement("button");
+    del.type = "button"; del.className = "subbtn"; del.textContent = "このメンバーを削除";
+    del.addEventListener("click", () => removeMember(i));
+    div.appendChild(del);
+  }
+  const h = document.createElement("h2");
+  h.textContent = "この人の予定（月〜金）";
+  mp.appendChild(h);
+  const dates = weekDates();
+  dates.forEach((d, di) => {
+    const dayDiv = document.createElement("div"); dayDiv.className = "day";
+    const head = document.createElement("div"); head.className = "dhead";
+    head.textContent = fmtD(d) + "（" + WDJP[d.getDay()] + "）";
+    dayDiv.appendChild(head);
+    const cell = document.createElement("div"); cell.className = "cell";
+    const mode = (state.modes && state.modes[di] && state.modes[di][i]) || "custom";
+    const sel = document.createElement("select");
+    sel.innerHTML = '<option value="base">いつもの活動</option><option value="custom">この日は変更</option><option value="off">お休み</option>';
+    sel.value = mode;
+    sel.addEventListener("change", () => { state.modes[di][i] = sel.value; saveState(); renderPage(); draw(); });
+    cell.appendChild(sel);
+    if (mode === "base") {
+      const sm = document.createElement("div"); sm.className = "note"; sm.dataset.baseSummary = i;
+      sm.textContent = baseSummary(i);
+      cell.appendChild(sm);
+    } else if (mode === "off") {
+      const sm = document.createElement("div"); sm.className = "note"; sm.textContent = "この日はお休み（画像では「―」表示）";
+      cell.appendChild(sm);
+    } else {
+      cell.appendChild(entryEditor(state.cells[di][i], 0));
+      cell.appendChild(entryEditor(state.cells[di][i], 1));
+    }
+    dayDiv.appendChild(cell);
+    mp.appendChild(dayDiv);
+  });
 }
 function normalizeShape() {
   const n = state.members.length;
@@ -263,6 +323,7 @@ function addMember() {
   state.members.push({ name: "", role: "" });
   normalizeShape();
   state.modes.forEach(row => row[state.members.length - 1] = "base");
+  activeTab = state.members.length - 1;
   saveState(); buildForm(); draw();
 }
 function removeMember(i) {
@@ -272,6 +333,7 @@ function removeMember(i) {
   if (state.modes) state.modes.forEach(row => row.splice(i, 1));
   if (state.bases) state.bases.splice(i, 1);
   photos.splice(i, 1);
+  if (activeTab >= state.members.length) activeTab = state.members.length - 1;
   saveState(); buildForm(); draw();
 }
 function entryEditor(arr, idx, onInput) {
@@ -301,40 +363,6 @@ function entryEditor(arr, idx, onInput) {
     });
   });
   return div;
-}
-function buildDays() {
-  const dw = $("days"); dw.innerHTML = "";
-  const dates = weekDates();
-  dates.forEach((d, di) => {
-    const dayDiv = document.createElement("div"); dayDiv.className = "day";
-    const head = document.createElement("div"); head.className = "dhead";
-    head.textContent = fmtD(d) + "（" + WDJP[d.getDay()] + "）";
-    dayDiv.appendChild(head);
-    state.members.forEach((m, mi) => {
-      const cell = document.createElement("div"); cell.className = "cell";
-      const nm = document.createElement("div"); nm.className = "cname"; nm.textContent = m.name || ("メンバー" + (mi + 1));
-      cell.appendChild(nm);
-      const mode = (state.modes && state.modes[di] && state.modes[di][mi]) || "custom";
-      const sel = document.createElement("select");
-      sel.innerHTML = '<option value="base">いつもの活動</option><option value="custom">この日は変更</option><option value="off">お休み</option>';
-      sel.value = mode;
-      sel.addEventListener("change", () => { state.modes[di][mi] = sel.value; saveState(); buildDays(); draw(); });
-      cell.appendChild(sel);
-      if (mode === "base") {
-        const sm = document.createElement("div"); sm.className = "note"; sm.dataset.baseSummary = mi;
-        sm.textContent = baseSummary(mi);
-        cell.appendChild(sm);
-      } else if (mode === "off") {
-        const sm = document.createElement("div"); sm.className = "note"; sm.textContent = "この日はお休み（画像では「―」表示）";
-        cell.appendChild(sm);
-      } else {
-        cell.appendChild(entryEditor(state.cells[di][mi], 0));
-        cell.appendChild(entryEditor(state.cells[di][mi], 1));
-      }
-      dayDiv.appendChild(cell);
-    });
-    dw.appendChild(dayDiv);
-  });
 }
 function loadPhoto(file, idx) {
   if (!file) return;
@@ -582,12 +610,12 @@ $("download").addEventListener("click", () => {
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }, "image/png");
 });
-$("resetSample").addEventListener("click", () => { state = JSON.parse(JSON.stringify(SAMPLE)); saveState(); buildForm(); draw(); });
+$("resetSample").addEventListener("click", () => { state = JSON.parse(JSON.stringify(SAMPLE)); activeTab = -1; saveState(); buildForm(); draw(); });
 $("clearAll").addEventListener("click", () => {
   const n = state.members.length;
   state.cells = Array.from({ length: 5 }, () => Array.from({ length: n }, () => []));
   if (state.modes) state.modes = state.modes.map(row => row.map(() => "custom"));
-  saveState(); buildDays(); draw();
+  saveState(); renderPage(); draw();
 });
 
 normalizeShape();
