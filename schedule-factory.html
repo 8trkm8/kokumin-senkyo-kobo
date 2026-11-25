@@ -47,7 +47,7 @@
   <div class="form">
     <h1>週間活動予定表メーカー</h1>
     <p class="note">入力すると右の画像がその場で作られます。写真はこの端末の中だけで処理され、どこにも送信されません。できあがったら「PNGをダウンロード」を押してください（1080×1350）。入力内容と写真はこの端末に保存され、次回開いたときに復元されます。</p>
-    <p class="note"><strong>楽な入力方法：</strong>まず各メンバーの「いつもの活動」（いつもの駅・時間）を入れておくと、各日の欄は初期状態でその内容が反映されます。違う日だけ「この日は変更」に切り替えて直し、休みの日は「お休み」を選んでください。各日はプルダウンで「いつもの活動（朝夕両方）／（朝のみ）／（夕のみ）」も選べます。「この日は変更」を選ぶと、いつもの活動の内容が下書きとして入るので、時間だけ直すような使い方もできます。立つ場所が毎日バラバラでも何カ所か決まっている人は、メンバーのタブで「予定の作り方」を『毎日、何カ所かの中から選んで立つ人』に切り替えてください。「よく立つ場所」に駅名・出口・路線を登録しておくと、各日の欄で選ぶだけで入ります（作り方はメンバーごとに選べるので、同じ表の中に両方のタイプの人がいても大丈夫です）。</p>
+    <p class="note"><strong>楽な入力方法：</strong>まず各メンバーの「いつもの活動」（いつもの駅・時間）を入れておくと、各日の欄は初期状態でその内容が反映されます。違う日だけ「この日は変更」に切り替えて直し、休みの日は「お休み」を選んでください。各日はプルダウンで「いつもの活動（朝夕両方）／（朝のみ）／（夕のみ）」も選べます。「この日は変更」を選ぶと、いつもの活動の内容が下書きとして入るので、時間だけ直すような使い方もできます。立つ場所が毎日バラバラでも何カ所か決まっている人は、メンバーのタブで「予定の作り方」を『毎日、何カ所かの中から選んで立つ人』に切り替えてください。「よく立つ場所」に駅名・出口・路線と朝活／夕活の時間を登録しておくと、各日の欄で場所を選ぶだけで入り、区分（朝活／夕活）を切り替えると登録した時間も入ります（作り方はメンバーごとに選べるので、同じ表の中に両方のタイプの人がいても大丈夫です）。</p>
 
     <div class="tabs" id="tabs"></div>
     <div id="pageBasic">
@@ -255,7 +255,7 @@ function renderPage() {
     div.appendChild(entryEditor(state.bases[i], 1, refreshSm, i));
   } else {
     const pl = document.createElement("label");
-    pl.textContent = "よく立つ場所（最大6件・登録すると各日の欄で選べるようになります）";
+    pl.textContent = "よく立つ場所（最大6件・朝活／夕活の時間もセットで登録できます）";
     div.appendChild(pl);
     if (!state.places[i]) state.places[i] = [];
     state.places[i].forEach((p, pi) => div.appendChild(placeEditor(i, pi)));
@@ -409,6 +409,17 @@ function removeMember(i) {
   if (activeTab >= state.members.length) activeTab = state.members.length - 1;
   saveState(); buildForm(); draw(); persistAllWeekly();
 }
+function applyPlaceTime(div, arr, idx, mi) {
+  // ローテーションタイプ：その欄の場所（駅名・出口・路線が一致する登録場所）の、区分に応じた登録時間を入れる
+  const e = arr[idx];
+  if (!e || !e.station) return;
+  const p = ((state.places && state.places[mi]) || []).find(p => p && p.station === e.station && (p.exit || "") === (e.exit || "") && (p.line || "") === (e.line || ""));
+  if (!p) return;
+  const s = e.kind === "pm" ? p.pmStart : p.amStart;
+  const en = e.kind === "pm" ? p.pmEnd : p.amEnd;
+  if (s) { e.start = s; const el = div.querySelector('[data-f="start"]'); if (el) el.value = s; }
+  if (en) { e.end = en; const el = div.querySelector('[data-f="end"]'); if (el) el.value = en; }
+}
 function buildPickerOptions(ps, mi) {
   const places = ((state.places && state.places[mi]) || []).filter(p => p && p.station);
   const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
@@ -425,15 +436,23 @@ function placeEditor(i, pi) {
       <div><label>出口</label><select data-pf="exit">
         <option value="">なし</option><option>東口</option><option>西口</option><option>南口</option><option>北口</option><option>中央口</option></select></div>
       <div><label>路線</label><input type="text" data-pf="line" style="width:56px" placeholder="JR"></div>
+    </div>
+    <div class="erow">
+      <div><label>朝活の開始</label><input type="time" data-pf="amStart"></div>
+      <div><label>朝活の終了</label><input type="time" data-pf="amEnd"></div>
+      <div><label>夕活の開始</label><input type="time" data-pf="pmStart"></div>
+      <div><label>夕活の終了</label><input type="time" data-pf="pmEnd"></div>
     </div>`;
   div.querySelectorAll("[data-pf]").forEach(inp => {
     const f = inp.dataset.pf;
     inp.value = p[f] || "";
-    inp.addEventListener("input", () => {
+    const onEdit = () => {
       p[f] = inp.value; saveState();
       // 場所を編集中でも各日のピッカーの選択肢へ即反映する（再描画すると入力中のフォーカスが外れるため、選択肢だけ差し替える）
       document.querySelectorAll("select.place-picker").forEach(ps => buildPickerOptions(ps, i));
-    });
+    };
+    inp.addEventListener("input", onEdit);
+    inp.addEventListener("change", onEdit);
   });
   const del = document.createElement("button");
   del.type = "button"; del.className = "subbtn"; del.textContent = "この場所を削除";
@@ -462,13 +481,15 @@ function entryEditor(arr, idx, onInput, mi) {
     inp.addEventListener("input", () => {
       while (arr.length <= idx) arr.push({ station: "", exit: "", line: "", kind: arr.length === 1 ? "pm" : "am", start: "", end: "" });
       arr[idx][f] = inp.type === "checkbox" ? inp.checked : inp.value;
+      if (f === "kind" && mi != null && state.mtypes && state.mtypes[mi] === "rota") applyPlaceTime(div, arr, idx, mi);
       saveState(); draw();
       if (onInput) onInput();
     });
   });
-  // 「よく立つ場所」から選ぶピッカー（場所の登録行があるメンバーだけ表示。選ぶと駅名・出口・路線がコピーで入る）
+  // 「よく立つ場所」から選ぶピッカー（ローテーションタイプで場所の登録行があるときだけ表示。同じ場所タイプには出さない）
+  const isRota = mi != null && state.mtypes && state.mtypes[mi] === "rota";
   const placeRows = mi != null && state.places && state.places[mi] || [];
-  if (placeRows.length) {
+  if (isRota && placeRows.length) {
     const pk = document.createElement("div");
     pk.innerHTML = `<label>よく立つ場所から選ぶ</label>`;
     const ps = document.createElement("select");
@@ -484,6 +505,7 @@ function entryEditor(arr, idx, onInput, mi) {
       div.querySelector('[data-f="station"]').value = arr[idx].station;
       div.querySelector('[data-f="exit"]').value = arr[idx].exit;
       div.querySelector('[data-f="line"]').value = arr[idx].line;
+      applyPlaceTime(div, arr, idx, mi);
       ps.value = "";
       saveState(); draw();
       if (onInput) onInput();
