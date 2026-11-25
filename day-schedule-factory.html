@@ -48,6 +48,11 @@
     <label>写真（なくても作れます。プレビュー上でドラッグで位置、スライダーで拡大）</label>
     <input type="file" id="photoInput" accept="image/*">
     <input type="range" id="zoom" min="100" max="300" value="100">
+    <label>背景画像（任意。設定すると色の帯の代わりにこの画像を使います）</label>
+    <input type="file" id="bgInput" accept="image/*">
+    <label>背景の上に白を重ねる（文字を読みやすく）</label>
+    <input type="range" id="bgFade" min="0" max="70" value="0">
+    <button class="subbtn" id="bgClear" type="button">背景画像をやめる</button>
 
     <h2>まわる場所</h2>
     <p class="note">時間・路線・場所を入れてください。場所は最大12箇所まで。箇所が少ない日は文字が大きく、多い日はコンパクトに自動調整されます。「13ヵ所」のような補足はバッジ欄へ。</p>
@@ -105,6 +110,8 @@ function freshDefault() {
 }
 let state = loadState();
 let photo = null; // { img, ox, oy, zoom }
+let bg = null; // background image (not persisted, like photos)
+let bgFadeVal = 0;
 
 function loadState() {
   try {
@@ -156,6 +163,14 @@ function buildForm() {
     img.src = URL.createObjectURL(f);
   });
   $("zoom").addEventListener("input", () => { if (photo) { photo.zoom = $("zoom").value / 100; draw(); } });
+  $("bgInput").addEventListener("change", ev => {
+    const f = ev.target.files[0]; if (!f) return;
+    const img = new Image();
+    img.onload = () => { bg = img; draw(); URL.revokeObjectURL(img.src); };
+    img.src = URL.createObjectURL(f);
+  });
+  $("bgFade").addEventListener("input", () => { bgFadeVal = $("bgFade").value / 100; if (bg) draw(); });
+  $("bgClear").addEventListener("click", () => { bg = null; $("bgInput").value = ""; draw(); });
   buildStops();
 }
 function buildStops() {
@@ -268,9 +283,17 @@ cv.addEventListener("wheel", ev => {
 /* ---------- drawing ---------- */
 function draw() {
   ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = NAVY; ctx.fillRect(0, 0, W, 216);
-  ctx.fillStyle = YELLOW; ctx.fillRect(0, 216, W, 432);
-  ctx.fillStyle = NAVY; ctx.fillRect(0, 648, W, 8);
+  if (bg) {
+    const iw = bg.naturalWidth, ih = bg.naturalHeight;
+    const sc = Math.max(W / iw, H / ih);
+    const dw = iw * sc, dh = ih * sc;
+    ctx.drawImage(bg, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    if (bgFadeVal > 0) { ctx.fillStyle = "rgba(255,255,255," + bgFadeVal + ")"; ctx.fillRect(0, 0, W, H); }
+  } else {
+    ctx.fillStyle = NAVY; ctx.fillRect(0, 0, W, 216);
+    ctx.fillStyle = YELLOW; ctx.fillRect(0, 216, W, 432);
+    ctx.fillStyle = NAVY; ctx.fillRect(0, 648, W, 8);
+  }
   ctx.textBaseline = "middle"; ctx.textAlign = "left";
   const MARGIN = 48;
   /* district + name */
@@ -328,7 +351,7 @@ function draw() {
     let badgeW = 0;
     if (st.badge) { ctx.font = font(20); badgeW = ctx.measureText(st.badge).width + 22; }
     if (twoLine) {
-      const cy1 = blockTop + rowH * 0.32, cy2 = blockTop + rowH * 0.72;
+      const cy1 = blockTop + rowH * 0.38, cy2 = blockTop + rowH * 0.59;
       const s2 = Math.max(0.85, Math.min(1.25, rowH / 190));
       const timePx = Math.round(Math.max(28, Math.min(52, 40 * s2)));
       ctx.font = fontNum(timePx); ctx.fillStyle = NAVY;
@@ -361,7 +384,7 @@ function draw() {
   });
   /* notes: navy band, white text */
   if (hasNotes) {
-    ctx.fillStyle = NAVY; ctx.fillRect(0, H - 72, W, 72);
+    if (!bg) { ctx.fillStyle = NAVY; ctx.fillRect(0, H - 72, W, 72); }
     ctx.font = font(20); ctx.fillStyle = "#fff";
     if (state.note1 && state.note2) {
       ctx.fillText(state.note1, MARGIN, H - 48);
