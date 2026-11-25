@@ -576,17 +576,13 @@ function draw() {
   const my = HEAD_H;
   ctx.fillStyle = "#fff"; ctx.fillRect(0, my, W, MEMBER_H);
   if (state.members.length === 1) {
-    const m = state.members[0], g = singlePhotoGeom();
-    drawPhotoCircle(g.cx, g.cy, g.r, photos[0], (m.name || "？").slice(0, 1));
-    const tx = g.cx + g.r + 36;
-    const maxW = colX(0) + COL_W() - tx - 4;
-    let np = fitPx(m.name, maxW, 56);
-    ctx.font = font(np); ctx.fillStyle = INK; ctx.textAlign = "left";
-    ctx.fillText(m.name, tx, m.role ? g.cy - 24 : g.cy);
+    const m = state.members[0], L = singleHeaderLayout();
+    drawPhotoCircle(L.cx, L.cy, L.r, photos[0], (m.name || "？").slice(0, 1));
+    ctx.font = font(L.np); ctx.fillStyle = INK; ctx.textAlign = "left";
+    ctx.fillText(m.name, L.tx, m.role ? L.cy - 24 : L.cy);
     if (m.role) {
-      let rp = fitPx(m.role, maxW, 20, 400);
-      ctx.font = font(rp, 400); ctx.fillStyle = "#66707c";
-      ctx.fillText(m.role, tx, g.cy + 32);
+      ctx.font = font(L.rp, 400); ctx.fillStyle = "#66707c";
+      ctx.fillText(m.role, L.tx, L.cy + 32);
     }
   } else state.members.forEach((m, i) => {
     const x = colX(i), cxm = x + COL_W() / 2;
@@ -655,7 +651,20 @@ function canvasPos(ev) {
   const p = ev.touches ? ev.touches[0] : ev;
   return { x: (p.clientX - r.left) * sx, y: (p.clientY - r.top) * sy };
 }
-function singlePhotoGeom() { return { cx: colX(0) + 78, cy: HEAD_H + MEMBER_H / 2, r: 62 }; }
+function singleHeaderLayout() {
+  const m = state.members[0] || { name: "", role: "" };
+  const r = 62, cy = HEAD_H + MEMBER_H / 2;
+  const maxTextW = COL_W() - r * 2 - 36 - 8;
+  const np = fitPx(m.name || "", maxTextW, 56);
+  ctx.font = font(np);
+  const nameW = ctx.measureText(m.name || "").width;
+  let rp = 20, roleW = 0;
+  if (m.role) { rp = fitPx(m.role, maxTextW, 20, 400); ctx.font = font(rp, 400); roleW = ctx.measureText(m.role).width; }
+  const blockW = r * 2 + 36 + Math.max(nameW, roleW);
+  const startX = colX(0) + (COL_W() - blockW) / 2;
+  return { cx: startX + r, cy, r, tx: startX + r * 2 + 36, np, rp };
+}
+function singlePhotoGeom() { const L = singleHeaderLayout(); return { cx: L.cx, cy: L.cy, r: L.r }; }
 function photoAt(p) {
   const my = HEAD_H;
   if (state.members.length === 1) {
