@@ -15,7 +15,7 @@
   #form h2 { font-size: 15px; margin: 18px 0 8px; border-left: 4px solid #f5b500; padding-left: 8px; }
   #form h2:first-child { margin-top: 0; }
   label { display: block; font-size: 12px; color: #66707c; margin: 8px 0 3px; }
-  input[type=text], input[type=date], input[type=time], select { width: 100%; padding: 8px; font-size: 15px; border: 1px solid #c9d2dd; border-radius: 6px; }
+  input[type=text], input[type=date], input[type=time], select, textarea { width: 100%; padding: 8px; font-size: 15px; border: 1px solid #c9d2dd; border-radius: 6px; font-family: inherit; }
   .mrow { display: flex; gap: 10px; } .mrow > div { flex: 1; }
   .note { font-size: 12px; color: #66707c; line-height: 1.6; }
   .stop { border: 1px solid #d9dee7; border-radius: 8px; padding: 10px 12px; margin: 10px 0; background: #fff; }
@@ -48,8 +48,8 @@
     <input type="text" id="pname">
     <label>見出し（日付の下に出ます）</label>
     <input type="text" id="labelText">
-    <label>見出しの下の一言（任意）</label>
-    <input type="text" id="subText" placeholder="例：お気軽にお声がけください">
+    <label>見出しの下の一言（任意・3行まで）</label>
+    <textarea id="subText" rows="3" placeholder="例：お気軽にお声がけください"></textarea>
     <label>日付</label>
     <input type="date" id="dateInput">
     <label>写真（なくても作れます。プレビュー上でドラッグで位置、スライダーで拡大）</label>
@@ -404,9 +404,13 @@ function draw() {
   }
   if (state.subText) {
     const subMaxW = (photo ? PHOTO_RECT.x - 16 : W - MARGIN) - (MARGIN + 26);
-    const spx = fitPx(state.subText, subMaxW, 29);
+    const lines = String(state.subText).split("\n").slice(0, 3);
+    let widest = "";
+    lines.forEach(l => { if (l.length > widest.length) widest = l; });
+    const spx = fitPx(widest, subMaxW, 29);
     ctx.font = font(spx); ctx.fillStyle = INK;
-    ctx.fillText(state.subText, MARGIN + 26, state.labelText ? 544 : 486);
+    const y0 = state.labelText ? 544 : 486;
+    lines.forEach((l, j) => ctx.fillText(l, MARGIN + 26, y0 + j * Math.round(spx * 1.38)));
   }
   /* stops list */
   const listTop = 668;
