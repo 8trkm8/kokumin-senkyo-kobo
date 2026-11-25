@@ -191,15 +191,47 @@ document.getElementById('photo').addEventListener('change', e => {
   };
   r.readAsDataURL(f);
 });
-document.getElementById('download').addEventListener('click', () => {
-  cv.toBlob(b => {
-    const a = document.createElement('a');
+
+/* ---------- save: PC/Android = download, iPhone/iPad = share sheet -> long-press overlay ---------- */
+function isIOSDevice() { return /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.userAgent.indexOf("Macintosh") >= 0 && navigator.maxTouchPoints > 1); }
+function showSaveOverlay(url) {
+  let ov = document.getElementById("saveOverlay");
+  if (!ov) {
+    ov = document.createElement("div");
+    ov.id = "saveOverlay";
+    ov.style.cssText = "position:fixed;inset:0;background:rgba(10,16,26,.93);z-index:999;overflow:auto;padding:18px 14px 28px;";
+    ov.innerHTML = '<p style="color:#fff;font-size:15px;line-height:1.7;margin:4px 2px 12px">画像を<strong>長押し</strong>して「写真に保存」（または「写真に追加」）を選ぶと、写真アプリに保存されます。</p><img id="saveOverlayImg" style="width:100%;height:auto;border-radius:6px;background:#fff"><button id="saveOverlayClose" type="button" style="display:block;width:100%;margin-top:14px;padding:13px;font-size:16px;font-weight:700;border:0;border-radius:10px;background:#f5b500;color:#1c2733;cursor:pointer">閉じる</button>';
+    document.body.appendChild(ov);
+    ov.querySelector("#saveOverlayClose").addEventListener("click", () => { ov.style.display = "none"; });
+  }
+  ov.querySelector("#saveOverlayImg").src = url;
+  ov.style.display = "block";
+  ov.scrollTop = 0;
+}
+function saveCanvasImage(filename) {
+  cv.toBlob(async b => {
+    if (!b) return;
+    if (isIOSDevice()) {
+      const file = new File([b], filename, { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file] }); return; }
+        catch (e) { if (e && e.name === "AbortError") return; }
+      }
+      showSaveOverlay(URL.createObjectURL(b));
+      return;
+    }
+    const a = document.createElement("a");
     a.href = URL.createObjectURL(b);
-    a.download = 'ballot.png';
+    a.download = filename;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  }, 'image/png');
-});
+  }, "image/png");
+}
+if (isIOSDevice()) {
+  const db0 = document.getElementById("download");
+  if (db0) db0.textContent = "画像を保存・共有する";
+}
+document.getElementById('download').addEventListener('click', () => { saveCanvasImage('ballot.png'); });
 // 写真の移動・拡大縮小（SNSアイコン設定と同じ操作感）
 const zoomEl = document.getElementById('zoom');
 function setZoom(z) {
