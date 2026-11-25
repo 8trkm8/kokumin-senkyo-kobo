@@ -19,6 +19,7 @@
   button { font-weight: 700; border: 0; border-radius: 10px; cursor: pointer; }
   #download { margin-top: 20px; width: 100%; font-size: 16px; padding: 12px; background: #0b3c8a; color: #fff; }
   .subbtn { background: #eef1f5; color: #31517a; font-size: 13px; padding: 8px 12px; margin-top: 8px; }
+  .member .subbtn + .subbtn { margin-left: 12px; }
   .member { border: 1px solid #e2e6ec; border-radius: 10px; padding: 10px 12px; margin-top: 10px; }
   .member .mrow { display: flex; gap: 8px; }
   .member .mrow > div { flex: 1; }
@@ -456,6 +457,7 @@ function placeEditor(i, pi) {
   });
   const del = document.createElement("button");
   del.type = "button"; del.className = "subbtn"; del.textContent = "この場所を削除";
+  del.style.display = "block"; del.style.marginLeft = "auto";
   del.addEventListener("click", () => { state.places[i].splice(pi, 1); saveState(); renderPage(); draw(); });
   div.appendChild(del);
   return div;
