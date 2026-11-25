@@ -306,11 +306,11 @@ $("clearAll").addEventListener("click", () => {
 });
 
 /* ---------- photo cover ---------- */
-const PHOTO_RECT = { x: 648, y: 238, w: 384, h: 368 };
+const PHOTO_RECT = { x: 656, y: 238, w: 368, h: 368 }; // bounding square of the circular photo
 function photoRect() { return photo ? PHOTO_RECT : null; }
 function drawPhotoCover(r) {
   ctx.save();
-  roundRect(r.x, r.y, r.w, r.h, 2); ctx.clip();
+  ctx.beginPath(); ctx.arc(r.x + r.w / 2, r.y + r.h / 2, r.w / 2, 0, Math.PI * 2); ctx.clip();
   if (photo && photo.img) {
     const iw = photo.img.naturalWidth, ih = photo.img.naturalHeight;
     const base = Math.max(r.w / iw, r.h / ih);
