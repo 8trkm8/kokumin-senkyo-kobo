@@ -268,16 +268,17 @@ cv.addEventListener("wheel", ev => {
 /* ---------- drawing ---------- */
 function draw() {
   ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = YELLOW; ctx.fillRect(0, 0, W, 648);
+  ctx.fillStyle = NAVY; ctx.fillRect(0, 0, W, 216);
+  ctx.fillStyle = YELLOW; ctx.fillRect(0, 216, W, 432);
   ctx.fillStyle = NAVY; ctx.fillRect(0, 648, W, 8);
   ctx.textBaseline = "middle"; ctx.textAlign = "left";
   const MARGIN = 48;
   /* district + name */
-  ctx.fillStyle = INK; ctx.font = font(35, 400);
-  ctx.fillText(state.district || "", MARGIN, 62);
-  const np = fitPx(state.pname || "", W - MARGIN * 2, 118);
-  ctx.font = font(np); ctx.fillStyle = NAVY;
-  ctx.fillText(state.pname || "", MARGIN, 158);
+  ctx.fillStyle = "#fff"; ctx.font = font(35);
+  ctx.fillText(state.district || "", MARGIN, 54);
+  const np = fitPx(state.pname || "", W - MARGIN * 2, 112);
+  ctx.font = font(np); ctx.fillStyle = "#fff";
+  ctx.fillText(state.pname || "", MARGIN, 148);
   /* photo (top right, beside the date) */
   if (photo) drawPhotoCover(PHOTO_RECT);
   /* date + weekday chip + label */
@@ -285,19 +286,19 @@ function draw() {
     const d = new Date(state.date + "T00:00:00");
     if (!isNaN(d)) {
       const dt = (d.getMonth() + 1) + "." + d.getDate();
-      ctx.font = fontNum(120); ctx.fillStyle = NAVY;
-      ctx.fillText(dt, MARGIN, 356);
+      ctx.font = fontNum(140); ctx.fillStyle = NAVY;
+      ctx.fillText(dt, MARGIN, 362);
       const dwdt = ctx.measureText(dt).width;
       const cxp = MARGIN + dwdt + 20;
-      ctx.fillStyle = NAVY; roundRect(cxp, 318, 78, 78, 10); ctx.fill();
-      ctx.fillStyle = "#fff"; ctx.font = font(42); ctx.textAlign = "center";
-      ctx.fillText(WDJP[d.getDay()], cxp + 39, 359);
+      ctx.fillStyle = NAVY; roundRect(cxp, 318, 88, 88, 10); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.font = font(46); ctx.textAlign = "center";
+      ctx.fillText(WDJP[d.getDay()], cxp + 44, 365);
       ctx.textAlign = "left";
     }
   }
   if (state.labelText) {
-    ctx.font = font(40, 400); ctx.fillStyle = INK;
-    ctx.fillText(state.labelText, MARGIN + 26, 472);
+    ctx.font = font(48); ctx.fillStyle = INK;
+    ctx.fillText(state.labelText, MARGIN + 26, 486);
   }
   /* stops list */
   const listTop = 668;
@@ -335,8 +336,8 @@ function draw() {
       let px = MARGIN;
       const placePx0 = Math.round(Math.max(30, Math.min(60, 46 * s2)));
       const placeTxt = (st.line ? st.line + " " : "") + (st.place || "");
-      const placePx = fitPx(placeTxt, rightEdge - px - (badgeW ? badgeW + 12 : 0), placePx0, 400);
-      ctx.font = font(placePx, 400); ctx.fillStyle = INK;
+      const placePx = fitPx(placeTxt, rightEdge - px - (badgeW ? badgeW + 12 : 0), placePx0);
+      ctx.font = font(placePx); ctx.fillStyle = INK;
       ctx.fillText(placeTxt, px, cy2 + 1);
       const pw = ctx.measureText(placeTxt).width;
       if (st.badge && badgeW) drawBadge(px + pw + 12, cy2, st.badge);
@@ -350,8 +351,8 @@ function draw() {
       let px = 336;
       const placePx0 = Math.round(Math.max(24, Math.min(46, 36 * s)));
       const placeTxt = (st.line ? st.line + " " : "") + (st.place || "");
-      const placePx = fitPx(placeTxt, rightEdge - px - (badgeW ? badgeW + 12 : 0), placePx0, 400);
-      ctx.font = font(placePx, 400); ctx.fillStyle = INK;
+      const placePx = fitPx(placeTxt, rightEdge - px - (badgeW ? badgeW + 12 : 0), placePx0);
+      ctx.font = font(placePx); ctx.fillStyle = INK;
       ctx.fillText(placeTxt, px, cy + 1);
       const pw = ctx.measureText(placeTxt).width;
       if (st.badge && badgeW) drawBadge(px + pw + 12, cy, st.badge);
@@ -361,7 +362,7 @@ function draw() {
   /* notes: navy band, white text */
   if (hasNotes) {
     ctx.fillStyle = NAVY; ctx.fillRect(0, H - 72, W, 72);
-    ctx.font = font(20, 400); ctx.fillStyle = "#fff";
+    ctx.font = font(20); ctx.fillStyle = "#fff";
     if (state.note1 && state.note2) {
       ctx.fillText(state.note1, MARGIN, H - 48);
       ctx.fillText(state.note2, MARGIN, H - 20);
