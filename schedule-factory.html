@@ -575,7 +575,20 @@ function draw() {
   /* member header row */
   const my = HEAD_H;
   ctx.fillStyle = "#fff"; ctx.fillRect(0, my, W, MEMBER_H);
-  state.members.forEach((m, i) => {
+  if (state.members.length === 1) {
+    const m = state.members[0], g = singlePhotoGeom();
+    drawPhotoCircle(g.cx, g.cy, g.r, photos[0], (m.name || "？").slice(0, 1));
+    const tx = g.cx + g.r + 36;
+    const maxW = colX(0) + COL_W() - tx - 4;
+    let np = fitPx(m.name, maxW, 56);
+    ctx.font = font(np); ctx.fillStyle = INK; ctx.textAlign = "left";
+    ctx.fillText(m.name, tx, m.role ? g.cy - 24 : g.cy);
+    if (m.role) {
+      let rp = fitPx(m.role, maxW, 20, 400);
+      ctx.font = font(rp, 400); ctx.fillStyle = "#66707c";
+      ctx.fillText(m.role, tx, g.cy + 32);
+    }
+  } else state.members.forEach((m, i) => {
     const x = colX(i), cxm = x + COL_W() / 2;
     if (i > 0) { ctx.fillStyle = "#e3e7ee"; ctx.fillRect(x - GAP / 2, my + 14, 1, MEMBER_H - 28); }
     const wide = COL_W() >= 400;
@@ -618,8 +631,18 @@ function draw() {
   /* footer */
   const fy = H - FOOT_H;
   ctx.fillStyle = NAVY; ctx.fillRect(0, fy, W, FOOT_H);
-  ctx.fillStyle = "#fff"; ctx.font = font(18, 400); ctx.textAlign = "left";
-  ctx.fillText(state.footerNote, MARGIN, fy + FOOT_H / 2);
+  ctx.font = font(19);
+  const tagW = ctx.measureText(state.hashtag).width;
+  const noteMax = W - MARGIN * 2 - tagW - 28;
+  let npx = 18; ctx.font = font(npx, 400);
+  while (npx > 12 && ctx.measureText(state.footerNote).width > noteMax) { npx -= 1; ctx.font = font(npx, 400); }
+  let noteTxt = state.footerNote;
+  if (ctx.measureText(noteTxt).width > noteMax) {
+    while (noteTxt && ctx.measureText(noteTxt + "…").width > noteMax) noteTxt = noteTxt.slice(0, -1);
+    noteTxt += "…";
+  }
+  ctx.fillStyle = "#fff"; ctx.font = font(npx, 400); ctx.textAlign = "left";
+  ctx.fillText(noteTxt, MARGIN, fy + FOOT_H / 2);
   ctx.textAlign = "right"; ctx.fillStyle = YELLOW; ctx.font = font(19);
   ctx.fillText(state.hashtag, W - MARGIN, fy + FOOT_H / 2);
   ctx.textAlign = "left";
@@ -632,8 +655,13 @@ function canvasPos(ev) {
   const p = ev.touches ? ev.touches[0] : ev;
   return { x: (p.clientX - r.left) * sx, y: (p.clientY - r.top) * sy };
 }
+function singlePhotoGeom() { return { cx: colX(0) + 78, cy: HEAD_H + MEMBER_H / 2, r: 62 }; }
 function photoAt(p) {
   const my = HEAD_H;
+  if (state.members.length === 1) {
+    const g = singlePhotoGeom();
+    return (Math.hypot(p.x - g.cx, p.y - g.cy) <= g.r + 6 && photos[0]) ? 0 : -1;
+  }
   for (let i = 0; i < state.members.length; i++) {
     const cxm = colX(i) + COL_W() / 2;
     const wide = COL_W() >= 400;
