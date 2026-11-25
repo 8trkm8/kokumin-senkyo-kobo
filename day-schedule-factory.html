@@ -39,14 +39,10 @@
     <h2>基本情報</h2>
     <label>選挙区・肩書</label>
     <input type="text" id="district">
-    <div class="mrow">
-      <div><label>名前</label><input type="text" id="pname"></div>
-      <div><label>読み（ひらがな）</label><input type="text" id="reading"></div>
-    </div>
-    <div class="mrow">
-      <div><label>ラベル</label><input type="text" id="labelText"></div>
-      <div><label>DAY（空欄なら非表示）</label><input type="text" id="dayNum" placeholder="例：8"></div>
-    </div>
+    <label>名前</label>
+    <input type="text" id="pname">
+    <label>見出し（日付の下に出ます）</label>
+    <input type="text" id="labelText">
     <label>日付</label>
     <input type="date" id="dateInput">
     <label>写真（なくても作れます。プレビュー上でドラッグで位置、スライダーで拡大）</label>
@@ -89,7 +85,7 @@ const SAMPLE = {
   district: "東京〇〇区 衆議院議員候補",
   pname: "山田たろう",
   reading: "やまだ たろう",
-  labelText: "街頭演説",
+  labelText: "演説・ご挨拶予定",
   dayNum: "",
   date: "",
   note1: "※天候等により、予定が変更になる場合があります",
@@ -147,9 +143,7 @@ function bindText(id, get, set) {
 function buildForm() {
   bindText("district", () => state.district, v => state.district = v);
   bindText("pname", () => state.pname, v => state.pname = v);
-  bindText("reading", () => state.reading, v => state.reading = v);
   bindText("labelText", () => state.labelText, v => state.labelText = v);
-  bindText("dayNum", () => state.dayNum, v => state.dayNum = v);
   bindText("note1", () => state.note1, v => state.note1 = v);
   bindText("note2", () => state.note2, v => state.note2 = v);
   const di = $("dateInput");
@@ -214,11 +208,11 @@ $("clearAll").addEventListener("click", () => {
 });
 
 /* ---------- photo cover ---------- */
-const PHOTO_RECT = { x: 716, y: 380, w: 328, h: 884 };
+const PHOTO_RECT = { x: 648, y: 238, w: 384, h: 368 };
 function photoRect() { return photo ? PHOTO_RECT : null; }
 function drawPhotoCover(r) {
   ctx.save();
-  roundRect(r.x, r.y, r.w, r.h, 18); ctx.clip();
+  roundRect(r.x, r.y, r.w, r.h, 2); ctx.clip();
   if (photo && photo.img) {
     const iw = photo.img.naturalWidth, ih = photo.img.naturalHeight;
     const base = Math.max(r.w / iw, r.h / ih);
@@ -234,10 +228,6 @@ function drawPhotoCover(r) {
     ctx.fillText((state.pname || "？").slice(0, 1), r.x + r.w / 2, r.y + r.h / 2);
     ctx.textAlign = "left";
   }
-  ctx.restore();
-  ctx.save();
-  roundRect(r.x, r.y, r.w, r.h, 18);
-  ctx.lineWidth = 3; ctx.strokeStyle = "#c9d2dd"; ctx.stroke();
   ctx.restore();
 }
 let drag = null;
@@ -277,86 +267,50 @@ cv.addEventListener("wheel", ev => {
 
 /* ---------- drawing ---------- */
 function draw() {
-  ctx.fillStyle = "#fdfdf8"; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H);
   ctx.textBaseline = "middle"; ctx.textAlign = "left";
-  const HEAD = 250, MARGIN = 36;
-  /* header */
-  ctx.fillStyle = NAVY; ctx.fillRect(0, 0, W, HEAD);
-  ctx.fillStyle = YELLOW; ctx.fillRect(0, HEAD, W, 8);
-  ctx.fillStyle = "#fff"; ctx.font = font(26);
-  ctx.fillText(state.district || "", MARGIN, 36);
-  // DAY box / label pill (top right)
-  const hasDay = (state.dayNum || "").trim() !== "";
-  const hasLabel = (state.labelText || "").trim() !== "";
-  let nameBudget = W - MARGIN * 2;
-  if (hasDay) {
-    const bx = 736, bw = W - MARGIN - bx;
-    nameBudget = bx - MARGIN - 24;
-    ctx.fillStyle = "#fff"; roundRect(bx, 20, bw, 180, 10); ctx.fill();
-    ctx.fillStyle = NAVY2; roundRect(bx, 20, bw, 52, 10); ctx.fill();
-    ctx.fillRect(bx, 20 + 42, bw, 10);
-    ctx.fillStyle = "#fff"; ctx.font = font(29); ctx.textAlign = "center";
-    ctx.fillText(state.labelText || "街頭演説", bx + bw / 2, 47);
-    ctx.fillStyle = NAVY; ctx.textAlign = "left";
-    ctx.font = fontNum(38); const dw = ctx.measureText("DAY").width;
-    ctx.font = fontNum(92); const nw = ctx.measureText(state.dayNum).width;
-    const total = dw + 14 + nw, sx = bx + (bw - total) / 2;
-    ctx.font = fontNum(38); ctx.fillText("DAY", sx, 138);
-    ctx.font = fontNum(92); ctx.fillText(state.dayNum, sx + dw + 14, 132);
-    ctx.textAlign = "left";
-  } else if (hasLabel) {
-    ctx.font = font(27);
-    const lw = ctx.measureText(state.labelText).width + 36;
-    nameBudget = W - MARGIN - lw - 24;
-    ctx.fillStyle = NAVY2; roundRect(W - MARGIN - lw, 16, lw, 46, 8); ctx.fill();
-    ctx.fillStyle = YELLOW; ctx.textAlign = "center";
-    ctx.fillText(state.labelText, W - MARGIN - lw / 2, 40);
-    ctx.textAlign = "left";
-  }
-  // name + reading
-  const np = fitPx(state.pname || "", nameBudget, 96);
-  ctx.font = font(np); ctx.fillStyle = "#fff";
-  ctx.fillText(state.pname || "", MARGIN, 122);
-  if (state.reading) {
-    try { ctx.letterSpacing = "7px"; } catch (e) {}
-    ctx.font = font(29, 400); ctx.fillStyle = "#dbe5f2";
-    ctx.fillText(state.reading, MARGIN + 4, 200);
-    try { ctx.letterSpacing = "0px"; } catch (e) {}
-  }
-  /* date row */
-  const listTop = 380;
+  const MARGIN = 48;
+  /* district + name */
+  ctx.fillStyle = INK; ctx.font = font(35, 400);
+  ctx.fillText(state.district || "", MARGIN, 62);
+  const np = fitPx(state.pname || "", W - MARGIN * 2, 118);
+  ctx.font = font(np); ctx.fillStyle = NAVY;
+  ctx.fillText(state.pname || "", MARGIN, 158);
+  /* photo (top right, beside the date) */
+  if (photo) drawPhotoCover(PHOTO_RECT);
+  /* date + weekday chip + label */
   if (state.date) {
     const d = new Date(state.date + "T00:00:00");
     if (!isNaN(d)) {
       const dt = (d.getMonth() + 1) + "." + d.getDate();
-      ctx.font = fontNum(98); ctx.fillStyle = NAVY;
-      ctx.fillText(dt, MARGIN, 318);
+      ctx.font = fontNum(120); ctx.fillStyle = NAVY;
+      ctx.fillText(dt, MARGIN, 356);
       const dwdt = ctx.measureText(dt).width;
-      const cxp = MARGIN + dwdt + 18;
-      ctx.fillStyle = NAVY; roundRect(cxp, 286, 62, 62, 8); ctx.fill();
-      ctx.fillStyle = "#fff"; ctx.font = font(33); ctx.textAlign = "center";
-      ctx.fillText(WDJP[d.getDay()], cxp + 31, 319);
+      const cxp = MARGIN + dwdt + 20;
+      ctx.fillStyle = NAVY; roundRect(cxp, 318, 78, 78, 10); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.font = font(42); ctx.textAlign = "center";
+      ctx.fillText(WDJP[d.getDay()], cxp + 39, 359);
       ctx.textAlign = "left";
     }
   }
-  /* photo panel */
-  if (photo) drawPhotoCover(PHOTO_RECT);
+  if (state.labelText) {
+    ctx.font = font(40, 400); ctx.fillStyle = INK;
+    ctx.fillText(state.labelText, MARGIN + 26, 472);
+  }
+  /* yellow separator */
+  ctx.fillStyle = YELLOW; ctx.fillRect(MARGIN, 622, W - MARGIN * 2, 9);
   /* stops list */
-  const listW = photo ? PHOTO_RECT.x - 24 - MARGIN : W - MARGIN * 2;
-  const listBottom = 1262;
+  const listTop = 668;
+  const hasNotes = (state.note1 || state.note2);
+  const listBottom = hasNotes ? 1246 : 1296;
+  const listW = W - MARGIN * 2;
   const stops = state.stops.length ? state.stops : [{ start: "", end: "", line: "", place: "", badge: "" }];
   const n = stops.length;
   const areaH = listBottom - listTop;
   const twoLine = n <= 5;
   let rowH, top0;
   if (twoLine) { rowH = areaH / n; top0 = listTop; }
-  else { rowH = Math.min(100, areaH / n); top0 = listTop + (areaH - rowH * n) / 2; }
-  const drawChevron = (x, cy, ch) => {
-    ctx.strokeStyle = NAVY; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.lineJoin = "round";
-    ctx.beginPath();
-    ctx.moveTo(x, cy - ch); ctx.lineTo(x + ch * 0.85, cy); ctx.lineTo(x, cy + ch);
-    ctx.stroke();
-  };
+  else { rowH = Math.min(96, areaH / n); top0 = listTop + (areaH - rowH * n) / 2; }
   const drawBadge = (x, cy, badge) => {
     ctx.font = font(20);
     const bw = ctx.measureText(badge).width + 22, bh = 34;
@@ -368,67 +322,49 @@ function draw() {
   };
   stops.forEach((st, i) => {
     const blockTop = top0 + rowH * i;
-    if (i > 0) { ctx.fillStyle = "#e3e7ee"; ctx.fillRect(MARGIN, blockTop, listW, 1.5); }
     const rightEdge = MARGIN + listW;
-    const timeTxt = st.start ? fmtTime(st.start) + (st.end ? "–" + fmtTime(st.end) : "～") : "";
+    const timeTxt = st.start ? fmtTime(st.start) + (st.end ? " – " + fmtTime(st.end) : " ～") : "";
     let badgeW = 0;
     if (st.badge) { ctx.font = font(20); badgeW = ctx.measureText(st.badge).width + 22; }
     if (twoLine) {
-      const cy1 = blockTop + rowH * 0.30, cy2 = blockTop + rowH * 0.70;
-      const s2 = Math.max(0.8, Math.min(1.3, rowH / 170));
-      drawChevron(MARGIN + 2, cy1, Math.max(12, Math.min(24, rowH * 0.09)));
-      const timePx = Math.round(Math.max(26, Math.min(50, 36 * s2)));
+      const cy1 = blockTop + rowH * 0.32, cy2 = blockTop + rowH * 0.72;
+      const s2 = Math.max(0.85, Math.min(1.25, rowH / 190));
+      const timePx = Math.round(Math.max(28, Math.min(52, 40 * s2)));
       ctx.font = fontNum(timePx); ctx.fillStyle = NAVY;
-      ctx.fillText(timeTxt, 78, cy1 + 1);
-      let px = 78;
-      const placePx0 = Math.round(Math.max(30, Math.min(62, 44 * s2)));
-      let routeW = 0;
-      if (st.line) { ctx.font = font(Math.round(placePx0 * 0.52)); routeW = ctx.measureText(st.line).width + 10; }
-      const placePx = fitPx(st.place || "", rightEdge - px - routeW - (badgeW ? badgeW + 12 : 0), placePx0);
-      if (st.line) {
-        ctx.font = font(Math.round(placePx * 0.52)); ctx.fillStyle = LINE;
-        ctx.fillText(st.line, px, cy2 + 1);
-        px += routeW;
-      }
-      ctx.font = font(placePx); ctx.fillStyle = INK;
-      ctx.fillText(st.place || "", px, cy2 + 1);
-      const pw = ctx.measureText(st.place || "").width;
+      ctx.fillText(timeTxt, MARGIN, cy1 + 1);
+      let px = MARGIN;
+      const placePx0 = Math.round(Math.max(30, Math.min(60, 46 * s2)));
+      const placeTxt = (st.line ? st.line + " " : "") + (st.place || "");
+      const placePx = fitPx(placeTxt, rightEdge - px - (badgeW ? badgeW + 12 : 0), placePx0, 400);
+      ctx.font = font(placePx, 400); ctx.fillStyle = INK;
+      ctx.fillText(placeTxt, px, cy2 + 1);
+      const pw = ctx.measureText(placeTxt).width;
       if (st.badge && badgeW) drawBadge(px + pw + 12, cy2, st.badge);
-      if (!st.start && !st.place) { ctx.font = font(24, 400); ctx.fillStyle = "#b9c2cd"; ctx.fillText("―", 78, cy1); }
+      if (!st.start && !st.place) { ctx.font = font(24, 400); ctx.fillStyle = "#b9c2cd"; ctx.fillText("―", MARGIN, cy1); }
     } else {
       const cy = blockTop + rowH / 2;
-      const s = Math.max(0.7, Math.min(1.05, rowH / 98));
-      drawChevron(MARGIN + 2, cy, Math.max(10, Math.min(22, rowH * 0.16)));
-      const timePx = Math.round(Math.max(22, Math.min(46, 30 * s)));
+      const s = Math.max(0.7, Math.min(1.0, rowH / 96));
+      const timePx = Math.round(Math.max(24, Math.min(44, 34 * s)));
       ctx.font = fontNum(timePx); ctx.fillStyle = NAVY;
-      ctx.fillText(timeTxt, 78, cy + 1);
-      const tw = timeTxt ? ctx.measureText(timeTxt).width : 0;
-      let px = 78 + tw + 18;
-      const placePx0 = Math.round(Math.max(24, Math.min(58, 38 * s)));
-      let routeW = 0;
-      if (st.line) { ctx.font = font(Math.round(placePx0 * 0.52)); routeW = ctx.measureText(st.line).width + 10; }
-      const placePx = fitPx(st.place || "", rightEdge - px - routeW - (badgeW ? badgeW + 12 : 0), placePx0);
-      if (st.line) {
-        ctx.font = font(Math.round(placePx * 0.52)); ctx.fillStyle = LINE;
-        ctx.fillText(st.line, px, cy + 1);
-        px += routeW;
-      }
-      ctx.font = font(placePx); ctx.fillStyle = INK;
-      ctx.fillText(st.place || "", px, cy + 1);
-      const pw = ctx.measureText(st.place || "").width;
+      ctx.fillText(timeTxt, MARGIN, cy + 1);
+      let px = 336;
+      const placePx0 = Math.round(Math.max(24, Math.min(46, 36 * s)));
+      const placeTxt = (st.line ? st.line + " " : "") + (st.place || "");
+      const placePx = fitPx(placeTxt, rightEdge - px - (badgeW ? badgeW + 12 : 0), placePx0, 400);
+      ctx.font = font(placePx, 400); ctx.fillStyle = INK;
+      ctx.fillText(placeTxt, px, cy + 1);
+      const pw = ctx.measureText(placeTxt).width;
       if (st.badge && badgeW) drawBadge(px + pw + 12, cy, st.badge);
-      if (!st.start && !st.place) { ctx.font = font(24, 400); ctx.fillStyle = "#b9c2cd"; ctx.fillText("―", 78, cy); }
+      if (!st.start && !st.place) { ctx.font = font(24, 400); ctx.fillStyle = "#b9c2cd"; ctx.fillText("―", MARGIN, cy); }
     }
   });
-  /* footer */
-  const fy = H - 72;
-  ctx.fillStyle = NAVY; ctx.fillRect(0, fy, W, 72);
-  ctx.fillStyle = "#fff"; ctx.font = font(19, 400);
+  /* notes (small, bottom) */
+  ctx.font = font(20, 400); ctx.fillStyle = LINE;
   if (state.note1 && state.note2) {
-    ctx.fillText(state.note1, MARGIN, fy + 24);
-    ctx.fillText(state.note2, MARGIN, fy + 50);
-  } else if (state.note1 || state.note2) {
-    ctx.fillText(state.note1 || state.note2, MARGIN, fy + 37);
+    ctx.fillText(state.note1, MARGIN, 1284);
+    ctx.fillText(state.note2, MARGIN, 1314);
+  } else if (hasNotes) {
+    ctx.fillText(state.note1 || state.note2, MARGIN, 1300);
   }
 }
 buildForm();
