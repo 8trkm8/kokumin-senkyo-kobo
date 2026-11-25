@@ -357,10 +357,22 @@ function draw() {
   const stops = state.stops.length ? state.stops : [{ start: "", end: "", line: "", place: "", badge: "" }];
   const n = stops.length;
   const areaH = listBottom - listTop;
-  const twoLine = n <= 5;
+  const twoLine = n <= 4;
   let rowH, top0;
   if (twoLine) { rowH = areaH / n; top0 = listTop; }
   else { rowH = Math.min(96, areaH / n); top0 = listTop + (areaH - rowH * n) / 2; }
+  let placeColX = 336;
+  if (!twoLine) {
+    const s0 = Math.max(0.7, Math.min(1.0, rowH / 96));
+    const timePx0 = Math.round(Math.max(24, Math.min(44, 34 * s0)));
+    ctx.font = fontNum(timePx0);
+    let maxTW = 0;
+    stops.forEach(st => {
+      const tt = st.start ? fmtTime(st.start) + (st.end ? " \u2013 " + fmtTime(st.end) : " \uFF5E") : "";
+      maxTW = Math.max(maxTW, ctx.measureText(tt).width);
+    });
+    placeColX = MARGIN + Math.ceil(maxTW) + 44;
+  }
   const drawBadge = (x, cy, badge) => {
     ctx.font = font(20);
     const bw = ctx.measureText(badge).width + 22, bh = 34;
@@ -377,7 +389,7 @@ function draw() {
     let badgeW = 0;
     if (st.badge) { ctx.font = font(20); badgeW = ctx.measureText(st.badge).width + 22; }
     if (twoLine) {
-      const cy1 = blockTop + rowH * 0.38, cy2 = blockTop + rowH * 0.59;
+      const cy1 = blockTop + rowH * 0.35, cy2 = blockTop + rowH * 0.63;
       const s2 = Math.max(0.85, Math.min(1.25, rowH / 190));
       const timePx = Math.round(Math.max(28, Math.min(52, 40 * s2)));
       ctx.font = fontNum(timePx); ctx.fillStyle = NAVY;
@@ -397,7 +409,7 @@ function draw() {
       const timePx = Math.round(Math.max(24, Math.min(44, 34 * s)));
       ctx.font = fontNum(timePx); ctx.fillStyle = NAVY;
       ctx.fillText(timeTxt, MARGIN, cy + 1);
-      let px = 336;
+      let px = placeColX;
       const placePx0 = Math.round(Math.max(24, Math.min(46, 36 * s)));
       const placeTxt = (st.line ? st.line + " " : "") + (st.place || "");
       const placePx = fitPx(placeTxt, rightEdge - px - (badgeW ? badgeW + 12 : 0), placePx0);
