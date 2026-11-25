@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1日街頭予定メーカー｜こくみん選挙ツール工房</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; margin: 0; background: #eef1f5; color: #1c2733; }
+  header { background: #043E80; color: #fff; padding: 14px 18px; }
+  header h1 { font-size: 19px; margin: 0; }
+  header p { font-size: 12.5px; margin: 4px 0 0; opacity: .85; }
+  main { display: flex; flex-wrap: wrap; gap: 18px; padding: 16px; align-items: flex-start; }
+  #form { flex: 1 1 400px; max-width: 560px; background: #fff; border-radius: 10px; padding: 16px 18px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  #form h2 { font-size: 15px; margin: 18px 0 8px; border-left: 4px solid #f5b500; padding-left: 8px; }
+  #form h2:first-child { margin-top: 0; }
+  label { display: block; font-size: 12px; color: #66707c; margin: 8px 0 3px; }
+  input[type=text], input[type=date], input[type=time], select { width: 100%; padding: 8px; font-size: 15px; border: 1px solid #c9d2dd; border-radius: 6px; }
+  .mrow { display: flex; gap: 10px; } .mrow > div { flex: 1; }
+  .note { font-size: 12px; color: #66707c; line-height: 1.6; }
+  .stop { border: 1px solid #d9dee7; border-radius: 8px; padding: 10px 12px; margin: 10px 0; }
+  .stop .srow { display: flex; gap: 8px; } .stop .srow > div { flex: 1; }
+  .stop .del { margin-top: 8px; background: #fff; border: 1px solid #d66; color: #c33; border-radius: 6px; padding: 5px 10px; font-size: 12.5px; cursor: pointer; }
+  #addStop { width: 100%; background: #fff; border: 1.5px dashed #043E80; color: #043E80; border-radius: 8px; padding: 10px; font-size: 14.5px; cursor: pointer; margin-top: 4px; }
+  #download { width: 100%; background: #043E80; color: #fff; border: none; border-radius: 8px; padding: 13px; font-size: 16px; cursor: pointer; margin-top: 18px; }
+  .subbtn { width: 100%; background: #fff; border: 1px solid #c9d2dd; border-radius: 8px; padding: 10px; font-size: 14px; cursor: pointer; margin-top: 8px; }
+  #preview { flex: 0 1 480px; }
+  #preview canvas { width: 100%; height: auto; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,.15); background: #fff; touch-action: none; }
+  input[type=range] { width: 100%; }
+</style>
+</head>
+<body>
+<header>
+  <h1>1日街頭予定メーカー</h1>
+  <p>1日分の街頭演説・あいさつ回りの予定ポスターを作ります。箇所の数に合わせて文字の大きさと間隔が自動で調整されます。写真や入力は端末の中だけで処理され、外部に送信されません。</p>
+</header>
+<main>
+  <div id="form">
+    <h2>基本情報</h2>
+    <label>選挙区・肩書</label>
+    <input type="text" id="district">
+    <div class="mrow">
+      <div><label>名前</label><input type="text" id="pname"></div>
+      <div><label>読み（ひらがな）</label><input type="text" id="reading"></div>
+    </div>
+    <div class="mrow">
+      <div><label>ラベル</label><input type="text" id="labelText"></div>
+      <div><label>DAY（空欄なら非表示）</label><input type="text" id="dayNum" placeholder="例：8"></div>
+    </div>
+    <label>日付</label>
+    <input type="date" id="dateInput">
+    <label>写真（なくても作れます。プレビュー上でドラッグで位置、スライダーで拡大）</label>
+    <input type="file" id="photoInput" accept="image/*">
+    <input type="range" id="zoom" min="100" max="300" value="100">
+
+    <h2>まわる場所</h2>
+    <p class="note">時間・路線・場所を入れてください。場所は最大12箇所まで。箇所が少ない日は文字が大きく、多い日はコンパクトに自動調整されます。「13ヵ所」のような補足はバッジ欄へ。</p>
+    <div id="stops"></div>
+    <button id="addStop" type="button">＋ 場所を追加</button>
+
+    <h2>フッターの注意書き</h2>
+    <label>1行目</label>
+    <input type="text" id="note1">
+    <label>2行目</label>
+    <input type="text" id="note2">
+
+    <button id="download">PNGをダウンロード</button>
+    <button class="subbtn" id="resetSample" type="button">初期値に戻す</button>
+    <button class="subbtn" id="clearAll" type="button">予定を全部空にする</button>
+  </div>
+  <div id="preview">
+    <canvas id="cv" width="1080" height="1350"></canvas>
+    <p class="note">プレビュー：写真はドラッグで位置調整、ホイール／スライダーで拡大できます。入力内容（写真以外）はこの端末のブラウザに自動保存されます。</p>
+  </div>
+</main>
+<script>
+"use strict";
+const W = 1080, H = 1350;
+const NAVY = "#043E80", NAVY2 = "#032a56", YELLOW = "#f5b500", INK = "#1c2733", LINE = "#5b6b80";
+const WDJP = ["日", "月", "火", "水", "木", "金", "土"];
+const FONT = '"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Yu Gothic",Meiryo,sans-serif';
+const FONT_NUM = 'Arial,"Helvetica Neue",Helvetica,sans-serif';
+const font = (px, wgt) => (wgt || 700) + " " + px + "px " + FONT;
+const fontNum = (px, wgt) => (wgt || 700) + " " + px + "px " + FONT_NUM;
+const $ = id => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d");
+
+const SAMPLE = {
+  district: "東京〇〇区 衆議院議員候補",
+  pname: "山田たろう",
+  reading: "やまだ たろう",
+  labelText: "街頭演説",
+  dayNum: "",
+  date: "",
+  note1: "※天候等により、予定が変更になる場合があります",
+  note2: "",
+  stops: [
+    { start: "07:00", end: "", line: "JR", place: "〇〇駅", badge: "" },
+    { start: "09:00", end: "", line: "", place: "〇〇区南部", badge: "13ヵ所" },
+    { start: "12:00", end: "", line: "JR", place: "〇〇駅 北口", badge: "" }
+  ]
+};
+function freshDefault() {
+  const s = JSON.parse(JSON.stringify(SAMPLE));
+  const d = new Date(); d.setDate(d.getDate() + 1);
+  const pad = n => String(n).padStart(2, "0");
+  s.date = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  return s;
+}
+let state = loadState();
+let photo = null; // { img, ox, oy, zoom }
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem("dayScheduleFactoryV1");
+    if (raw) { const s = JSON.parse(raw); if (s && Array.isArray(s.stops)) return s; }
+  } catch (e) {}
+  return freshDefault();
+}
+function saveState() {
+  try { localStorage.setItem("dayScheduleFactoryV1", JSON.stringify(state)); } catch (e) {}
+}
+function fitPx(text, maxW, base, wgt, num) {
+  let px = base; ctx.font = num ? fontNum(px, wgt) : font(px, wgt);
+  while (px > 12 && ctx.measureText(text).width > maxW) { px -= 2; ctx.font = num ? fontNum(px, wgt) : font(px, wgt); }
+  return px;
+}
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+const fmtTime = t => {
+  if (!t) return "";
+  const [h, m] = t.split(":");
+  return parseInt(h, 10) + ":" + m;
+};
+
+/* ---------- form ---------- */
+function bindText(id, get, set) {
+  const el = $(id);
+  el.value = get();
+  el.addEventListener("input", () => { set(el.value); saveState(); draw(); });
+}
+function buildForm() {
+  bindText("district", () => state.district, v => state.district = v);
+  bindText("pname", () => state.pname, v => state.pname = v);
+  bindText("reading", () => state.reading, v => state.reading = v);
+  bindText("labelText", () => state.labelText, v => state.labelText = v);
+  bindText("dayNum", () => state.dayNum, v => state.dayNum = v);
+  bindText("note1", () => state.note1, v => state.note1 = v);
+  bindText("note2", () => state.note2, v => state.note2 = v);
+  const di = $("dateInput");
+  di.value = state.date;
+  di.addEventListener("change", () => { if (di.value) { state.date = di.value; saveState(); draw(); } });
+  $("photoInput").addEventListener("change", ev => {
+    const f = ev.target.files[0]; if (!f) return;
+    const img = new Image();
+    img.onload = () => { photo = { img, ox: 0, oy: 0, zoom: 1 }; $("zoom").value = 100; draw(); URL.revokeObjectURL(img.src); };
+    img.src = URL.createObjectURL(f);
+  });
+  $("zoom").addEventListener("input", () => { if (photo) { photo.zoom = $("zoom").value / 100; draw(); } });
+  buildStops();
+}
+function buildStops() {
+  const wrap = $("stops"); wrap.innerHTML = "";
+  state.stops.forEach((s, i) => {
+    const div = document.createElement("div"); div.className = "stop";
+    div.innerHTML = `
+      <div class="srow">
+        <div><label>開始</label><input type="time" data-f="start"></div>
+        <div><label>終了（任意）</label><input type="time" data-f="end"></div>
+        <div><label>路線（任意）</label><input type="text" data-f="line" placeholder="JR"></div>
+      </div>
+      <div class="srow">
+        <div style="flex:2"><label>場所</label><input type="text" data-f="place" placeholder="例：中野駅 北口"></div>
+        <div><label>バッジ（任意）</label><input type="text" data-f="badge" placeholder="13ヵ所"></div>
+      </div>
+      <button class="del" type="button">この場所を削除</button>`;
+    div.querySelectorAll("[data-f]").forEach(inp => {
+      const f = inp.dataset.f;
+      inp.value = s[f] || "";
+      inp.addEventListener("input", () => { state.stops[i][f] = inp.value; saveState(); draw(); });
+    });
+    div.querySelector(".del").addEventListener("click", () => {
+      state.stops.splice(i, 1);
+      if (!state.stops.length) state.stops.push({ start: "", end: "", line: "", place: "", badge: "" });
+      saveState(); buildStops(); draw();
+    });
+    wrap.appendChild(div);
+  });
+  $("addStop").style.display = state.stops.length >= 12 ? "none" : "";
+}
+$("addStop").addEventListener("click", () => {
+  if (state.stops.length >= 12) return;
+  state.stops.push({ start: "", end: "", line: "", place: "", badge: "" });
+  saveState(); buildStops(); draw();
+});
+$("download").addEventListener("click", () => {
+  const a = document.createElement("a");
+  a.download = "day-schedule-" + (state.date || "poster") + ".png";
+  a.href = cv.toDataURL("image/png");
+  a.click();
+});
+$("resetSample").addEventListener("click", () => {
+  state = freshDefault(); photo = null;
+  saveState(); buildForm(); draw();
+});
+$("clearAll").addEventListener("click", () => {
+  state.stops = [{ start: "", end: "", line: "", place: "", badge: "" }];
+  saveState(); buildStops(); draw();
+});
+
+/* ---------- photo cover ---------- */
+const PHOTO_RECT = { x: 716, y: 380, w: 328, h: 884 };
+function photoRect() { return photo ? PHOTO_RECT : null; }
+function drawPhotoCover(r) {
+  ctx.save();
+  roundRect(r.x, r.y, r.w, r.h, 18); ctx.clip();
+  if (photo && photo.img) {
+    const iw = photo.img.naturalWidth, ih = photo.img.naturalHeight;
+    const base = Math.max(r.w / iw, r.h / ih);
+    const sc = base * (photo.zoom || 1);
+    const dw = iw * sc, dh = ih * sc;
+    const dx = r.x + (r.w - dw) / 2 + (photo.ox || 0) * Math.max(0, dw - r.w) / 2;
+    const dy = r.y + (r.h - dh) / 2 + (photo.oy || 0) * Math.max(0, dh - r.h) / 2;
+    ctx.drawImage(photo.img, dx, dy, dw, dh);
+  } else {
+    ctx.fillStyle = "#dfe7f2"; ctx.fillRect(r.x, r.y, r.w, r.h);
+    ctx.fillStyle = NAVY; ctx.font = font(150);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText((state.pname || "？").slice(0, 1), r.x + r.w / 2, r.y + r.h / 2);
+    ctx.textAlign = "left";
+  }
+  ctx.restore();
+  ctx.save();
+  roundRect(r.x, r.y, r.w, r.h, 18);
+  ctx.lineWidth = 3; ctx.strokeStyle = "#c9d2dd"; ctx.stroke();
+  ctx.restore();
+}
+let drag = null;
+function canvasPos(ev) {
+  const r = cv.getBoundingClientRect();
+  return { x: (ev.clientX - r.left) * W / r.width, y: (ev.clientY - r.top) * H / r.height };
+}
+cv.addEventListener("pointerdown", ev => {
+  const p = canvasPos(ev), r = photoRect();
+  if (r && photo && p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h) {
+    drag = { x: p.x, y: p.y, ox: photo.ox, oy: photo.oy };
+    cv.setPointerCapture(ev.pointerId);
+  }
+});
+cv.addEventListener("pointermove", ev => {
+  if (!drag || !photo) return;
+  const p = canvasPos(ev), r = PHOTO_RECT;
+  const iw = photo.img.naturalWidth, ih = photo.img.naturalHeight;
+  const base = Math.max(r.w / iw, r.h / ih) * (photo.zoom || 1);
+  const dw = iw * base, dh = ih * base;
+  if (dw > r.w) photo.ox = Math.max(-1, Math.min(1, drag.ox + (p.x - drag.x) * 2 / (dw - r.w)));
+  if (dh > r.h) photo.oy = Math.max(-1, Math.min(1, drag.oy + (p.y - drag.y) * 2 / (dh - r.h)));
+  draw();
+});
+cv.addEventListener("pointerup", () => { drag = null; });
+cv.addEventListener("wheel", ev => {
+  const r = photoRect();
+  if (!r || !photo) return;
+  const p = canvasPos(ev);
+  if (p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h) {
+    ev.preventDefault();
+    photo.zoom = Math.max(1, Math.min(3, (photo.zoom || 1) * (ev.deltaY < 0 ? 1.06 : 0.94)));
+    $("zoom").value = Math.round(photo.zoom * 100);
+    draw();
+  }
+}, { passive: false });
+
+/* ---------- drawing ---------- */
+function draw() {
+  ctx.fillStyle = "#fdfdf8"; ctx.fillRect(0, 0, W, H);
+  ctx.textBaseline = "middle"; ctx.textAlign = "left";
+  const HEAD = 250, MARGIN = 36;
+  /* header */
+  ctx.fillStyle = NAVY; ctx.fillRect(0, 0, W, HEAD);
+  ctx.fillStyle = YELLOW; ctx.fillRect(0, HEAD, W, 8);
+  ctx.fillStyle = "#fff"; ctx.font = font(26);
+  ctx.fillText(state.district || "", MARGIN, 36);
+  // DAY box / label pill (top right)
+  const hasDay = (state.dayNum || "").trim() !== "";
+  const hasLabel = (state.labelText || "").trim() !== "";
+  let nameBudget = W - MARGIN * 2;
+  if (hasDay) {
+    const bx = 736, bw = W - MARGIN - bx;
+    nameBudget = bx - MARGIN - 24;
+    ctx.fillStyle = "#fff"; roundRect(bx, 20, bw, 180, 10); ctx.fill();
+    ctx.fillStyle = NAVY2; roundRect(bx, 20, bw, 52, 10); ctx.fill();
+    ctx.fillRect(bx, 20 + 42, bw, 10);
+    ctx.fillStyle = "#fff"; ctx.font = font(29); ctx.textAlign = "center";
+    ctx.fillText(state.labelText || "街頭演説", bx + bw / 2, 47);
+    ctx.fillStyle = NAVY; ctx.textAlign = "left";
+    ctx.font = fontNum(38); const dw = ctx.measureText("DAY").width;
+    ctx.font = fontNum(92); const nw = ctx.measureText(state.dayNum).width;
+    const total = dw + 14 + nw, sx = bx + (bw - total) / 2;
+    ctx.font = fontNum(38); ctx.fillText("DAY", sx, 138);
+    ctx.font = fontNum(92); ctx.fillText(state.dayNum, sx + dw + 14, 132);
+    ctx.textAlign = "left";
+  } else if (hasLabel) {
+    ctx.font = font(27);
+    const lw = ctx.measureText(state.labelText).width + 36;
+    nameBudget = W - MARGIN - lw - 24;
+    ctx.fillStyle = NAVY2; roundRect(W - MARGIN - lw, 16, lw, 46, 8); ctx.fill();
+    ctx.fillStyle = YELLOW; ctx.textAlign = "center";
+    ctx.fillText(state.labelText, W - MARGIN - lw / 2, 40);
+    ctx.textAlign = "left";
+  }
+  // name + reading
+  const np = fitPx(state.pname || "", nameBudget, 96);
+  ctx.font = font(np); ctx.fillStyle = "#fff";
+  ctx.fillText(state.pname || "", MARGIN, 122);
+  if (state.reading) {
+    try { ctx.letterSpacing = "7px"; } catch (e) {}
+    ctx.font = font(29, 400); ctx.fillStyle = "#dbe5f2";
+    ctx.fillText(state.reading, MARGIN + 4, 200);
+    try { ctx.letterSpacing = "0px"; } catch (e) {}
+  }
+  /* date row */
+  const listTop = 380;
+  if (state.date) {
+    const d = new Date(state.date + "T00:00:00");
+    if (!isNaN(d)) {
+      const dt = (d.getMonth() + 1) + "." + d.getDate();
+      ctx.font = fontNum(98); ctx.fillStyle = NAVY;
+      ctx.fillText(dt, MARGIN, 318);
+      const dwdt = ctx.measureText(dt).width;
+      const cxp = MARGIN + dwdt + 18;
+      ctx.fillStyle = NAVY; roundRect(cxp, 286, 62, 62, 8); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.font = font(33); ctx.textAlign = "center";
+      ctx.fillText(WDJP[d.getDay()], cxp + 31, 319);
+      ctx.textAlign = "left";
+    }
+  }
+  /* photo panel */
+  if (photo) drawPhotoCover(PHOTO_RECT);
+  /* stops list */
+  const listW = photo ? PHOTO_RECT.x - 24 - MARGIN : W - MARGIN * 2;
+  const listBottom = 1262;
+  const stops = state.stops.length ? state.stops : [{ start: "", end: "", line: "", place: "", badge: "" }];
+  const n = stops.length;
+  const rowH = (listBottom - listTop) / n;
+  const s = Math.max(0.7, Math.min(1.6, rowH / 98));
+  stops.forEach((st, i) => {
+    const cy = listTop + rowH * (i + 0.5);
+    if (i > 0) { ctx.fillStyle = "#e3e7ee"; ctx.fillRect(MARGIN, listTop + rowH * i, listW, 1.5); }
+    // chevron
+    const ch = Math.max(10, Math.min(22, rowH * 0.16));
+    ctx.strokeStyle = NAVY; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(MARGIN + 2, cy - ch); ctx.lineTo(MARGIN + 2 + ch * 0.85, cy); ctx.lineTo(MARGIN + 2, cy + ch);
+    ctx.stroke();
+    // time
+    const timePx = Math.round(Math.max(22, Math.min(46, 30 * s)));
+    const timeTxt = st.start ? fmtTime(st.start) + (st.end ? "–" + fmtTime(st.end) : "～") : "";
+    ctx.font = fontNum(timePx); ctx.fillStyle = NAVY;
+    ctx.fillText(timeTxt, 78, cy + 1);
+    const tw = timeTxt ? ctx.measureText(timeTxt).width : 0;
+    let px = 78 + tw + 18;
+    const rightEdge = MARGIN + listW;
+    // badge width reserved so it always fits beside the place
+    let badgeW = 0;
+    if (st.badge) { ctx.font = font(20); badgeW = ctx.measureText(st.badge).width + 22; }
+    // route (small, before place)
+    let routeW = 0;
+    const placePx0 = Math.round(Math.max(24, Math.min(58, 38 * s)));
+    if (st.line) {
+      ctx.font = font(Math.round(placePx0 * 0.52));
+      routeW = ctx.measureText(st.line).width + 10;
+    }
+    const placePx = fitPx(st.place || "", rightEdge - px - routeW - (badgeW ? badgeW + 12 : 0), placePx0);
+    if (st.line) {
+      ctx.font = font(Math.round(placePx * 0.52)); ctx.fillStyle = LINE;
+      ctx.fillText(st.line, px, cy + 1);
+      px += routeW;
+    }
+    ctx.font = font(placePx); ctx.fillStyle = INK;
+    ctx.fillText(st.place || "", px, cy + 1);
+    const pw = ctx.measureText(st.place || "").width;
+    if (st.badge && badgeW) {
+      const bx = px + pw + 12, bh = 34;
+      ctx.fillStyle = NAVY; roundRect(bx, cy - bh / 2, badgeW, bh, bh / 2); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.font = font(20); ctx.textAlign = "center";
+      ctx.fillText(st.badge, bx + badgeW / 2, cy + 1);
+      ctx.textAlign = "left";
+    }
+    if (!st.start && !st.place) {
+      ctx.font = font(24, 400); ctx.fillStyle = "#b9c2cd";
+      ctx.fillText("―", 78, cy);
+    }
+  });
+  /* footer */
+  const fy = H - 72;
+  ctx.fillStyle = NAVY; ctx.fillRect(0, fy, W, 72);
+  ctx.fillStyle = "#fff"; ctx.font = font(19, 400);
+  if (state.note1 && state.note2) {
+    ctx.fillText(state.note1, MARGIN, fy + 24);
+    ctx.fillText(state.note2, MARGIN, fy + 50);
+  } else if (state.note1 || state.note2) {
+    ctx.fillText(state.note1 || state.note2, MARGIN, fy + 37);
+  }
+}
+buildForm();
+draw();
+</script>
+</body>
+</html>
