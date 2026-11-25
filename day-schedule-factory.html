@@ -48,6 +48,7 @@
     <label>写真（なくても作れます。プレビュー上でドラッグで位置、スライダーで拡大）</label>
     <input type="file" id="photoInput" accept="image/*">
     <input type="range" id="zoom" min="100" max="300" value="100">
+    <button class="subbtn" id="photoClear" type="button">写真を外す</button>
     <label>背景画像（任意。設定すると色の帯の代わりにこの画像を使います）</label>
     <input type="file" id="bgInput" accept="image/*">
     <label>背景の上に白を重ねる（文字を読みやすく）</label>
@@ -71,7 +72,7 @@
   </div>
   <div id="preview">
     <canvas id="cv" width="1080" height="1350"></canvas>
-    <p class="note">プレビュー：写真はドラッグで位置調整、ホイール／スライダーで拡大できます。入力内容（写真以外）はこの端末のブラウザに自動保存されます。</p>
+    <p class="note">プレビュー：写真はドラッグで位置調整、ホイール／スライダーで拡大できます。入力内容と写真・背景画像はこの端末のブラウザに自動保存され、次回開いたときに復元されます（外部には送信されません）。</p>
   </div>
 </main>
 <script>
@@ -109,9 +110,50 @@ function freshDefault() {
   return s;
 }
 let state = loadState();
+/* ---------- on-device media store (IndexedDB) ---------- */
+const IDB = {
+  db: null,
+  open() { return new Promise(res => {
+    try {
+      const rq = indexedDB.open("kobo-media", 1);
+      rq.onupgradeneeded = () => rq.result.createObjectStore("media");
+      rq.onsuccess = () => { IDB.db = rq.result; res(); };
+      rq.onerror = () => res();
+    } catch (e) { res(); }
+  });},
+  get(k) { return new Promise(res => { if (!IDB.db) return res(null);
+    try { const rq = IDB.db.transaction("media").objectStore("media").get(k);
+      rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); } catch (e) { res(null); } });},
+  set(k, v) { return new Promise(res => { if (!IDB.db) return res();
+    try { const rq = IDB.db.transaction("media", "readwrite").objectStore("media").put(v, k);
+      rq.onsuccess = () => res(); rq.onerror = () => res(); } catch (e) { res(); } });},
+  del(k) { return new Promise(res => { if (!IDB.db) return res();
+    try { const rq = IDB.db.transaction("media", "readwrite").objectStore("media").delete(k);
+      rq.onsuccess = () => res(); rq.onerror = () => res(); } catch (e) { res(); } });}
+};
+function shrinkToDataURL(img, maxDim) {
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  const sc = Math.min(1, maxDim / Math.max(iw, ih));
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(iw * sc)); c.height = Math.max(1, Math.round(ih * sc));
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  let u = c.toDataURL("image/png");
+  if (u.length > 1200000) u = c.toDataURL("image/jpeg", 0.88);
+  return u;
+}
 let photo = null; // { img, ox, oy, zoom }
-let bg = null; // background image (not persisted, like photos)
+let photoDataUrl = null;
+let bg = null; // background image
+let bgDataUrl = null;
 let bgFadeVal = 0;
+function persistPhoto() {
+  if (photo && photoDataUrl) IDB.set("day:photo", { u: photoDataUrl, ox: photo.ox, oy: photo.oy, zoom: photo.zoom });
+  else IDB.del("day:photo");
+}
+function persistBg() {
+  if (bg && bgDataUrl) IDB.set("day:bg", { u: bgDataUrl, fade: bgFadeVal });
+  else IDB.del("day:bg");
+}
 
 function loadState() {
   try {
@@ -159,18 +201,21 @@ function buildForm() {
   $("photoInput").addEventListener("change", ev => {
     const f = ev.target.files[0]; if (!f) return;
     const img = new Image();
-    img.onload = () => { photo = { img, ox: 0, oy: 0, zoom: 1 }; $("zoom").value = 100; draw(); URL.revokeObjectURL(img.src); };
+    img.onload = () => { photo = { img, ox: 0, oy: 0, zoom: 1 }; photoDataUrl = shrinkToDataURL(img, 900); $("zoom").value = 100; draw(); persistPhoto(); URL.revokeObjectURL(img.src); };
     img.src = URL.createObjectURL(f);
   });
   $("zoom").addEventListener("input", () => { if (photo) { photo.zoom = $("zoom").value / 100; draw(); } });
+  $("zoom").addEventListener("change", () => persistPhoto());
+  $("photoClear").addEventListener("click", () => { photo = null; photoDataUrl = null; $("photoInput").value = ""; draw(); persistPhoto(); });
   $("bgInput").addEventListener("change", ev => {
     const f = ev.target.files[0]; if (!f) return;
     const img = new Image();
-    img.onload = () => { bg = img; draw(); URL.revokeObjectURL(img.src); };
+    img.onload = () => { bg = img; bgDataUrl = shrinkToDataURL(img, 1350); draw(); persistBg(); URL.revokeObjectURL(img.src); };
     img.src = URL.createObjectURL(f);
   });
   $("bgFade").addEventListener("input", () => { bgFadeVal = $("bgFade").value / 100; if (bg) draw(); });
-  $("bgClear").addEventListener("click", () => { bg = null; $("bgInput").value = ""; draw(); });
+  $("bgFade").addEventListener("change", () => persistBg());
+  $("bgClear").addEventListener("click", () => { bg = null; bgDataUrl = null; $("bgInput").value = ""; draw(); persistBg(); });
   buildStops();
 }
 function buildStops() {
@@ -267,7 +312,7 @@ cv.addEventListener("pointermove", ev => {
   if (dh > r.h) photo.oy = Math.max(-1, Math.min(1, drag.oy + (p.y - drag.y) * 2 / (dh - r.h)));
   draw();
 });
-cv.addEventListener("pointerup", () => { drag = null; });
+cv.addEventListener("pointerup", () => { if (drag) persistPhoto(); drag = null; });
 cv.addEventListener("wheel", ev => {
   const r = photoRect();
   if (!r || !photo) return;
@@ -276,7 +321,7 @@ cv.addEventListener("wheel", ev => {
     ev.preventDefault();
     photo.zoom = Math.max(1, Math.min(3, (photo.zoom || 1) * (ev.deltaY < 0 ? 1.06 : 0.94)));
     $("zoom").value = Math.round(photo.zoom * 100);
-    draw();
+    draw(); persistPhoto();
   }
 }, { passive: false });
 
@@ -396,6 +441,20 @@ function draw() {
 }
 buildForm();
 draw();
+IDB.open().then(async () => {
+  const pr = await IDB.get("day:photo");
+  if (pr && pr.u) {
+    const img = new Image();
+    img.onload = () => { photo = { img, ox: pr.ox || 0, oy: pr.oy || 0, zoom: pr.zoom || 1 }; photoDataUrl = pr.u; $("zoom").value = Math.round(photo.zoom * 100); draw(); };
+    img.src = pr.u;
+  }
+  const br = await IDB.get("day:bg");
+  if (br && br.u) {
+    const img = new Image();
+    img.onload = () => { bg = img; bgDataUrl = br.u; bgFadeVal = br.fade || 0; $("bgFade").value = Math.round(bgFadeVal * 100); draw(); };
+    img.src = br.u;
+  }
+});
 </script>
 </body>
 </html>

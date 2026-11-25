@@ -46,7 +46,7 @@
 <div class="wrap">
   <div class="form">
     <h1>週間活動予定表メーカー</h1>
-    <p class="note">入力すると右の画像がその場で作られます。写真はこの端末の中だけで処理され、どこにも送信されません。できあがったら「PNGをダウンロード」を押してください（1080×1350）。入力内容（写真以外）はこの端末に保存され、次回開いたときに復元されます。</p>
+    <p class="note">入力すると右の画像がその場で作られます。写真はこの端末の中だけで処理され、どこにも送信されません。できあがったら「PNGをダウンロード」を押してください（1080×1350）。入力内容と写真はこの端末に保存され、次回開いたときに復元されます。</p>
     <p class="note"><strong>楽な入力方法：</strong>まず各メンバーの「いつもの活動」（いつもの駅・時間）を入れておくと、各日の欄は初期状態でその内容が反映されます。違う日だけ「この日は変更」に切り替えて直し、休みの日は「お休み」を選んでください。各日はプルダウンで「いつもの活動（朝夕両方）／（朝のみ）／（夕のみ）」も選べます。「この日は変更」を選ぶと、いつもの活動の内容が下書きとして入るので、時間だけ直すような使い方もできます。</p>
 
     <div class="tabs" id="tabs"></div>
@@ -333,7 +333,7 @@ function removeMember(i) {
   if (state.bases) state.bases.splice(i, 1);
   photos.splice(i, 1);
   if (activeTab >= state.members.length) activeTab = state.members.length - 1;
-  saveState(); buildForm(); draw();
+  saveState(); buildForm(); draw(); persistAllWeekly();
 }
 function entryEditor(arr, idx, onInput) {
   const e = arr[idx] || { station: "", exit: "", line: "", kind: idx === 1 ? "pm" : "am", start: "", end: "" };
@@ -362,14 +362,52 @@ function entryEditor(arr, idx, onInput) {
   });
   return div;
 }
+/* ---------- on-device media store (IndexedDB) ---------- */
+const IDB = {
+  db: null,
+  open() { return new Promise(res => {
+    try {
+      const rq = indexedDB.open("kobo-media", 1);
+      rq.onupgradeneeded = () => rq.result.createObjectStore("media");
+      rq.onsuccess = () => { IDB.db = rq.result; res(); };
+      rq.onerror = () => res();
+    } catch (e) { res(); }
+  });},
+  get(k) { return new Promise(res => { if (!IDB.db) return res(null);
+    try { const rq = IDB.db.transaction("media").objectStore("media").get(k);
+      rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); } catch (e) { res(null); } });},
+  set(k, v) { return new Promise(res => { if (!IDB.db) return res();
+    try { const rq = IDB.db.transaction("media", "readwrite").objectStore("media").put(v, k);
+      rq.onsuccess = () => res(); rq.onerror = () => res(); } catch (e) { res(); } });},
+  del(k) { return new Promise(res => { if (!IDB.db) return res();
+    try { const rq = IDB.db.transaction("media", "readwrite").objectStore("media").delete(k);
+      rq.onsuccess = () => res(); rq.onerror = () => res(); } catch (e) { res(); } });}
+};
+function shrinkToDataURL(img, maxDim) {
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  const sc = Math.min(1, maxDim / Math.max(iw, ih));
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(iw * sc)); c.height = Math.max(1, Math.round(ih * sc));
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  let u = c.toDataURL("image/png");
+  if (u.length > 1200000) u = c.toDataURL("image/jpeg", 0.88);
+  return u;
+}
+function persistWeekly(i) {
+  const rec = photos[i];
+  if (rec && rec.dataUrl) IDB.set("weekly:" + i, { u: rec.dataUrl, dx: rec.dx || 0, dy: rec.dy || 0, scale: rec.scale || 1 });
+  else IDB.del("weekly:" + i);
+}
+function persistAllWeekly() { for (let i = 0; i < 8; i++) persistWeekly(i); }
+
 function loadPhoto(file, idx) {
   if (!file) return;
   const url = URL.createObjectURL(file);
   const img = new Image();
   img.onload = () => {
-    const rec = { img, dx: 0, dy: 0, scale: 1 };
+    const rec = { img, dx: 0, dy: 0, scale: 1, dataUrl: shrinkToDataURL(img, 900) };
     photos[idx] = rec; selectedPhoto = idx; $("zoom").value = 100;
-    draw();
+    draw(); persistWeekly(idx);
   };
   img.src = url;
 }
@@ -615,15 +653,16 @@ cv.addEventListener("pointermove", ev => {
   photos[drag.idx].dx += p.x - drag.x; photos[drag.idx].dy += p.y - drag.y;
   drag.x = p.x; drag.y = p.y; draw();
 });
-cv.addEventListener("pointerup", () => drag = null);
+cv.addEventListener("pointerup", () => { if (drag) persistWeekly(drag.idx); drag = null; });
 cv.addEventListener("wheel", ev => {
   const p = canvasPos(ev); const idx = photoAt(p);
-  if (idx >= 0) { ev.preventDefault(); selectedPhoto = idx; const rec = photos[idx]; rec.scale = Math.min(3, Math.max(1, (rec.scale || 1) * (ev.deltaY < 0 ? 1.05 : 0.95))); $("zoom").value = Math.round(rec.scale * 100); draw(); }
+  if (idx >= 0) { ev.preventDefault(); selectedPhoto = idx; const rec = photos[idx]; rec.scale = Math.min(3, Math.max(1, (rec.scale || 1) * (ev.deltaY < 0 ? 1.05 : 0.95))); $("zoom").value = Math.round(rec.scale * 100); draw(); persistWeekly(idx); }
 }, { passive: false });
 $("zoom").addEventListener("input", () => {
   const rec = photos[selectedPhoto];
   if (rec) { rec.scale = $("zoom").value / 100; draw(); }
 });
+$("zoom").addEventListener("change", () => persistWeekly(selectedPhoto));
 
 /* ---------- buttons ---------- */
 $("download").addEventListener("click", () => {
@@ -647,6 +686,16 @@ normalizeShape();
 setCanvasSize();
 buildForm();
 draw();
+IDB.open().then(async () => {
+  for (let i = 0; i < photos.length; i++) {
+    const rec = await IDB.get("weekly:" + i);
+    if (rec && rec.u) {
+      const img = new Image();
+      img.onload = () => { photos[i] = { img, dx: rec.dx || 0, dy: rec.dy || 0, scale: rec.scale || 1, dataUrl: rec.u }; draw(); };
+      img.src = rec.u;
+    }
+  }
+});
 </script>
 <!-- deploy-check 2026-11-24 -->
 </body>
