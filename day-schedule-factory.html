@@ -6,7 +6,7 @@
 <title>1日街頭予定メーカー｜こくみん選挙ツール工房</title>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; margin: 0; background: #eef1f5; color: #1c2733; }
+  body { font-family: "Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif; margin: 0; background: #eef1f5; color: #1c2733; }
   header { background: #043E80; color: #fff; padding: 14px 18px; }
   header h1 { font-size: 19px; margin: 0; }
   header p { font-size: 12.5px; margin: 4px 0 0; opacity: .85; }
@@ -74,7 +74,7 @@
 const W = 1080, H = 1350;
 const NAVY = "#043E80", NAVY2 = "#032a56", YELLOW = "#f5b500", INK = "#1c2733", LINE = "#5b6b80";
 const WDJP = ["日", "月", "火", "水", "木", "金", "土"];
-const FONT = '"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Yu Gothic",Meiryo,sans-serif';
+const FONT = "'Hiragino Kaku Gothic ProN','Hiragino Sans','Noto Sans JP','Yu Gothic',sans-serif";
 const FONT_NUM = 'Arial,"Helvetica Neue",Helvetica,sans-serif';
 const font = (px, wgt) => (wgt || 700) + " " + px + "px " + FONT;
 const fontNum = (px, wgt) => (wgt || 700) + " " + px + "px " + FONT_NUM;
@@ -268,6 +268,8 @@ cv.addEventListener("wheel", ev => {
 /* ---------- drawing ---------- */
 function draw() {
   ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = YELLOW; ctx.fillRect(0, 0, W, 648);
+  ctx.fillStyle = NAVY; ctx.fillRect(0, 648, W, 8);
   ctx.textBaseline = "middle"; ctx.textAlign = "left";
   const MARGIN = 48;
   /* district + name */
@@ -297,8 +299,6 @@ function draw() {
     ctx.font = font(40, 400); ctx.fillStyle = INK;
     ctx.fillText(state.labelText, MARGIN + 26, 472);
   }
-  /* yellow separator */
-  ctx.fillStyle = YELLOW; ctx.fillRect(MARGIN, 622, W - MARGIN * 2, 9);
   /* stops list */
   const listTop = 668;
   const hasNotes = (state.note1 || state.note2);
@@ -358,13 +358,16 @@ function draw() {
       if (!st.start && !st.place) { ctx.font = font(24, 400); ctx.fillStyle = "#b9c2cd"; ctx.fillText("―", MARGIN, cy); }
     }
   });
-  /* notes (small, bottom) */
-  ctx.font = font(20, 400); ctx.fillStyle = LINE;
-  if (state.note1 && state.note2) {
-    ctx.fillText(state.note1, MARGIN, 1284);
-    ctx.fillText(state.note2, MARGIN, 1314);
-  } else if (hasNotes) {
-    ctx.fillText(state.note1 || state.note2, MARGIN, 1300);
+  /* notes: navy band, white text */
+  if (hasNotes) {
+    ctx.fillStyle = NAVY; ctx.fillRect(0, H - 72, W, 72);
+    ctx.font = font(20, 400); ctx.fillStyle = "#fff";
+    if (state.note1 && state.note2) {
+      ctx.fillText(state.note1, MARGIN, H - 48);
+      ctx.fillText(state.note2, MARGIN, H - 20);
+    } else {
+      ctx.fillText(state.note1 || state.note2, MARGIN, H - 35);
+    }
   }
 }
 buildForm();
