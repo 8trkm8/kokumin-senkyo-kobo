@@ -306,7 +306,7 @@ $("clearAll").addEventListener("click", () => {
 });
 
 /* ---------- photo cover ---------- */
-const PHOTO_RECT = { x: 656, y: 238, w: 368, h: 368 }; // bounding square of the circular photo
+const PHOTO_RECT = { x: 656, y: 248, w: 368, h: 368 }; // bounding square of the circular photo (centred in the yellow band)
 function photoRect() { return photo ? PHOTO_RECT : null; }
 function drawPhotoCover(r) {
   ctx.save();
