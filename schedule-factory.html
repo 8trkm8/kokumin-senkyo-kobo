@@ -47,7 +47,7 @@
   <div class="form">
     <h1>週間活動予定表メーカー</h1>
     <p class="note">入力すると右の画像がその場で作られます。写真はこの端末の中だけで処理され、どこにも送信されません。できあがったら「PNGをダウンロード」を押してください（1080×1350）。入力内容と写真はこの端末に保存され、次回開いたときに復元されます。</p>
-    <p class="note"><strong>楽な入力方法：</strong>まず各メンバーの「いつもの活動」（いつもの駅・時間）を入れておくと、各日の欄は初期状態でその内容が反映されます。違う日だけ「この日は変更」に切り替えて直し、休みの日は「お休み」を選んでください。各日はプルダウンで「いつもの活動（朝夕両方）／（朝のみ）／（夕のみ）」も選べます。「この日は変更」を選ぶと、いつもの活動の内容が下書きとして入るので、時間だけ直すような使い方もできます。立つ場所が毎日バラバラでも何カ所か決まっている人は、「よく立つ場所」に駅名・出口・路線を登録しておくと、各日の欄で選ぶだけで入ります。</p>
+    <p class="note"><strong>楽な入力方法：</strong>まず各メンバーの「いつもの活動」（いつもの駅・時間）を入れておくと、各日の欄は初期状態でその内容が反映されます。違う日だけ「この日は変更」に切り替えて直し、休みの日は「お休み」を選んでください。各日はプルダウンで「いつもの活動（朝夕両方）／（朝のみ）／（夕のみ）」も選べます。「この日は変更」を選ぶと、いつもの活動の内容が下書きとして入るので、時間だけ直すような使い方もできます。立つ場所が毎日バラバラでも何カ所か決まっている人は、メンバーのタブで「予定の作り方」を『毎日、何カ所かの中から選んで立つ人』に切り替えてください。「よく立つ場所」に駅名・出口・路線を登録しておくと、各日の欄で選ぶだけで入ります（作り方はメンバーごとに選べるので、同じ表の中に両方のタイプの人がいても大丈夫です）。</p>
 
     <div class="tabs" id="tabs"></div>
     <div id="pageBasic">
@@ -118,6 +118,7 @@ const SAMPLE = {
   ],
   bases: [[], [], []],
   places: [[], [], []],
+  mtypes: ["base", "base", "base"],
   modes: [
     ["both", "both", "both"],
     ["both", "both", "both"],
@@ -227,25 +228,46 @@ function renderPage() {
     });
   });
   div.querySelector("input[type=file]").addEventListener("change", ev => loadPhoto(ev.target.files[0], i));
-  const bl = document.createElement("label");
-  bl.textContent = "いつもの活動（平日の基本パターン・最大2件）";
-  div.appendChild(bl);
-  const refreshSm = () => document.querySelectorAll('[data-base-summary="' + i + '"]').forEach(el => el.textContent = baseSummary(i, el.dataset.baseMode));
-  div.appendChild(entryEditor(state.bases[i], 0, refreshSm, i));
-  div.appendChild(entryEditor(state.bases[i], 1, refreshSm, i));
-  const pl = document.createElement("label");
-  pl.textContent = "よく立つ場所（最大6件・登録すると「いつもの活動」と各日の欄で選べるようになります）";
-  div.appendChild(pl);
-  if (!state.places[i]) state.places[i] = [];
-  state.places[i].forEach((p, pi) => div.appendChild(placeEditor(i, pi)));
-  if (state.places[i].length < 6) {
-    const addP = document.createElement("button");
-    addP.type = "button"; addP.className = "subbtn"; addP.textContent = "＋ 場所を追加";
-    addP.addEventListener("click", () => {
-      state.places[i].push({ station: "", exit: "", line: "" });
-      saveState(); renderPage();
+  const mtype = (state.mtypes && state.mtypes[i]) || "base";
+  const tl = document.createElement("label");
+  tl.textContent = "この人の予定の作り方";
+  div.appendChild(tl);
+  const trow = document.createElement("div");
+  trow.style.display = "flex"; trow.style.gap = "6px"; trow.style.flexWrap = "wrap";
+  [["base", "だいたい同じ場所に立つことが多い人"], ["rota", "毎日、何カ所かの中から選んで立つ人"]].forEach(([t, label]) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "tabbtn" + (mtype === t ? " on" : "");
+    b.style.flex = "1 1 180px"; b.textContent = label;
+    b.addEventListener("click", () => {
+      if ((state.mtypes[i] || "base") === t) return;
+      state.mtypes[i] = t;
+      saveState(); renderPage(); draw();
     });
-    div.appendChild(addP);
+    trow.appendChild(b);
+  });
+  div.appendChild(trow);
+  const refreshSm = () => document.querySelectorAll('[data-base-summary="' + i + '"]').forEach(el => el.textContent = baseSummary(i, el.dataset.baseMode));
+  if (mtype === "base") {
+    const bl = document.createElement("label");
+    bl.textContent = "いつもの活動（平日の基本パターン・最大2件）";
+    div.appendChild(bl);
+    div.appendChild(entryEditor(state.bases[i], 0, refreshSm, i));
+    div.appendChild(entryEditor(state.bases[i], 1, refreshSm, i));
+  } else {
+    const pl = document.createElement("label");
+    pl.textContent = "よく立つ場所（最大6件・登録すると各日の欄で選べるようになります）";
+    div.appendChild(pl);
+    if (!state.places[i]) state.places[i] = [];
+    state.places[i].forEach((p, pi) => div.appendChild(placeEditor(i, pi)));
+    if (state.places[i].length < 6) {
+      const addP = document.createElement("button");
+      addP.type = "button"; addP.className = "subbtn"; addP.textContent = "＋ 場所を追加";
+      addP.addEventListener("click", () => {
+        state.places[i].push({ station: "", exit: "", line: "" });
+        saveState(); renderPage();
+      });
+      div.appendChild(addP);
+    }
   }
   if (state.members.length > 1) {
     const del = document.createElement("button");
@@ -264,6 +286,27 @@ function renderPage() {
     dayDiv.appendChild(head);
     const cell = document.createElement("div"); cell.className = "cell";
     const mode = (state.modes && state.modes[di] && state.modes[di][i]) || "custom";
+    if (mtype === "rota") {
+      const offBtn = document.createElement("button");
+      offBtn.type = "button"; offBtn.className = "subbtn";
+      if (mode === "off") { offBtn.textContent = "お休み中（クリックで解除）"; offBtn.style.background = "#043E80"; offBtn.style.color = "#fff"; }
+      else offBtn.textContent = "この日はお休みにする";
+      offBtn.addEventListener("click", () => {
+        state.modes[di][i] = mode === "off" ? "custom" : "off";
+        saveState(); renderPage(); draw();
+      });
+      cell.appendChild(offBtn);
+      if (mode === "off") {
+        const sm = document.createElement("div"); sm.className = "note"; sm.textContent = "この日はお休み（画像では「―」表示）";
+        cell.appendChild(sm);
+      } else {
+        cell.appendChild(entryEditor(state.cells[di][i], 0, null, i));
+        cell.appendChild(entryEditor(state.cells[di][i], 1, null, i));
+      }
+      dayDiv.appendChild(cell);
+      mp.appendChild(dayDiv);
+      return;
+    }
     const sel = document.createElement("select");
     sel.innerHTML = '<option value="both">いつもの活動（朝夕両方）</option><option value="amonly">いつもの活動（朝のみ）</option><option value="pmonly">いつもの活動（夕のみ）</option><option value="custom">この日は変更</option><option value="off">お休み</option>';
     sel.value = mode;
@@ -310,6 +353,10 @@ function normalizeShape() {
   while (state.places.length < n) state.places.push([]);
   state.places.length = n;
   state.places.forEach(pl => { if (pl.length > 6) pl.length = 6; });
+  state.mtypes = state.mtypes || [];
+  while (state.mtypes.length < n) state.mtypes.push("base");
+  state.mtypes.length = n;
+  state.mtypes = state.mtypes.map(t => t === "rota" ? "rota" : "base");
   for (let d = 0; d < 7; d++) for (let i = 0; i < n; i++) {
     if (state.modes[d][i] === "base") state.modes[d][i] = "both";
   }
@@ -327,6 +374,10 @@ function baseEntriesFor(i, mode) {
 }
 function effectiveEntries(d, i) {
   const mode = (state.modes && state.modes[d] && state.modes[d][i]) || "custom";
+  if (state.mtypes && state.mtypes[i] === "rota") {
+    if (mode === "off") return [];
+    return (state.cells[d][i] || []).filter(e => e && e.station);
+  }
   if (mode === "off") return [];
   if (mode === "both" || mode === "amonly" || mode === "pmonly") return baseEntriesFor(i, mode);
   return (state.cells[d][i] || []).filter(e => e && e.station);
@@ -340,6 +391,7 @@ function addMember() {
   if (state.members.length >= 4) return;
   state.members.push({ name: "", role: "" });
   if (state.places) state.places.push([]);
+  if (state.mtypes) state.mtypes.push("base");
   normalizeShape();
   state.modes.forEach(row => row[state.members.length - 1] = "both");
   activeTab = state.members.length - 1;
@@ -352,9 +404,17 @@ function removeMember(i) {
   if (state.modes) state.modes.forEach(row => row.splice(i, 1));
   if (state.bases) state.bases.splice(i, 1);
   if (state.places) state.places.splice(i, 1);
+  if (state.mtypes) state.mtypes.splice(i, 1);
   photos.splice(i, 1);
   if (activeTab >= state.members.length) activeTab = state.members.length - 1;
   saveState(); buildForm(); draw(); persistAllWeekly();
+}
+function buildPickerOptions(ps, mi) {
+  const places = ((state.places && state.places[mi]) || []).filter(p => p && p.station);
+  const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  ps.innerHTML = '<option value="">（選ぶと下の欄に入ります）</option>' + places.map((p, pi) =>
+    '<option value="' + pi + '">' + esc(p.station) + (p.exit ? " " + esc(p.exit) : "") + (p.line ? "・" + esc(p.line) : "") + "</option>").join("");
+  ps._places = places;
 }
 function placeEditor(i, pi) {
   const p = state.places[i][pi];
@@ -369,7 +429,11 @@ function placeEditor(i, pi) {
   div.querySelectorAll("[data-pf]").forEach(inp => {
     const f = inp.dataset.pf;
     inp.value = p[f] || "";
-    inp.addEventListener("input", () => { p[f] = inp.value; saveState(); });
+    inp.addEventListener("input", () => {
+      p[f] = inp.value; saveState();
+      // 場所を編集中でも各日のピッカーの選択肢へ即反映する（再描画すると入力中のフォーカスが外れるため、選択肢だけ差し替える）
+      document.querySelectorAll("select.place-picker").forEach(ps => buildPickerOptions(ps, i));
+    });
   });
   const del = document.createElement("button");
   del.type = "button"; del.className = "subbtn"; del.textContent = "この場所を削除";
@@ -402,19 +466,19 @@ function entryEditor(arr, idx, onInput, mi) {
       if (onInput) onInput();
     });
   });
-  // 「よく立つ場所」から選ぶピッカー（登録があるメンバーだけ表示。選ぶと駅名・出口・路線がコピーで入る）
-  const places = (mi != null && state.places && state.places[mi] || []).filter(p => p && p.station);
-  if (places.length) {
+  // 「よく立つ場所」から選ぶピッカー（場所の登録行があるメンバーだけ表示。選ぶと駅名・出口・路線がコピーで入る）
+  const placeRows = mi != null && state.places && state.places[mi] || [];
+  if (placeRows.length) {
     const pk = document.createElement("div");
     pk.innerHTML = `<label>よく立つ場所から選ぶ</label>`;
     const ps = document.createElement("select");
+    ps.className = "place-picker";
     ps.style.width = "100%";
-    const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
-    ps.innerHTML = '<option value="">（選ぶと下の欄に入ります）</option>' + places.map((p, pi) =>
-      '<option value="' + pi + '">' + esc(p.station) + (p.exit ? " " + esc(p.exit) : "") + (p.line ? "・" + esc(p.line) : "") + "</option>").join("");
+    buildPickerOptions(ps, mi);
     ps.addEventListener("change", () => {
       if (ps.value === "") return;
-      const p = places[parseInt(ps.value, 10)];
+      const p = (ps._places || [])[parseInt(ps.value, 10)];
+      if (!p) return;
       while (arr.length <= idx) arr.push({ station: "", exit: "", line: "", kind: arr.length === 1 ? "pm" : "am", start: "", end: "" });
       arr[idx].station = p.station || ""; arr[idx].exit = p.exit || ""; arr[idx].line = p.line || "";
       div.querySelector('[data-f="station"]').value = arr[idx].station;
