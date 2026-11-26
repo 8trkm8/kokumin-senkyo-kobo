@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>動画フレームメーカー｜こくみん選挙ツール工房</title>
 <meta name="description" content="縦動画（9:16）に重ねるフレームPNGを作るツール。16:9動画用・1:1動画用の窓あきフレームと、9:16動画用の帯フレーム。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@900&family=Zen+Maru+Gothic:wght@900&family=Shippori+Mincho+B1:wght@800&display=swap" rel="stylesheet">
 <style>
   :root { --blue:#043E80; --yellow:#f5b500; --bg:#f4f6f9; }
   * { box-sizing:border-box; }
@@ -31,7 +34,14 @@
   .preview-wrap { text-align:center; }
   #preview { width:min(100%,300px); height:auto; border:1px solid #cdd7e4; border-radius:6px; background:#fff; }
   .note { font-size:12px; color:#666; line-height:1.6; margin:8px 0 0; }
+  #selFont { width:100%; font-size:15px; padding:9px 10px; border:1px solid #cdd7e4; border-radius:6px; background:#fff; height:44px; }
   .save { width:100%; background:var(--blue); color:#fff; border:none; border-radius:8px; font-size:17px; font-weight:bold; padding:14px; cursor:pointer; margin-top:6px; }
+  @media (min-width:900px) {
+    main { max-width:1180px; display:grid; grid-template-columns:minmax(0,1fr) 400px; column-gap:16px; align-items:start; }
+    #secDesign, #textSection, #secSave, #secUsage { grid-column:1; }
+    .preview-wrap { grid-column:2; grid-row:1 / span 4; position:sticky; top:16px; }
+    #preview { width:100%; }
+  }
   .save:active { opacity:.8; }
   #overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.9); z-index:99; flex-direction:column; align-items:center; justify-content:center; padding:20px; }
   #overlay img { max-width:100%; max-height:70vh; }
@@ -45,7 +55,7 @@
   <p>縦動画（9:16）に重ねるフレームPNGを作ります。入力は端末の外に出ません。</p>
 </header>
 <main>
-  <section>
+  <section id="secDesign">
     <h2>1. デザインを選ぶ</h2>
     <div class="types" id="types">
       <button data-type="wide" class="on">16:9動画用<small>横動画を窓に収める</small></button>
@@ -92,21 +102,35 @@
       <label for="inFooter">フッター（空にすると何も入りません）</label>
       <input type="text" id="inFooter" value="よろしくお願いします！" maxlength="30">
     </div>
+    <div id="fieldFont">
+      <h3>フォント</h3>
+      <label for="selFont">文字のフォント</label>
+      <select id="selFont">
+        <option value="gothic">ゴシック</option>
+        <option value="maru">丸ゴシック</option>
+        <option value="mincho">明朝</option>
+      </select>
+      <p class="note">数字は見やすいよう、どのフォントでも英字フォントで表示します。</p>
+    </div>
     <div class="row">
       <input type="checkbox" id="chkSample" checked>
       <label for="chkSample" style="margin:0;font-weight:normal">プレビューでサンプル動画を重ねて見る</label>
     </div>
   </section>
 
-  <section class="preview-wrap">
-    <h2 style="text-align:left">3. プレビュー（1080×1920）</h2>
-    <canvas id="preview" width="540" height="960"></canvas>
-    <p class="note">市松模様の部分が透明＝動画が見える場所です。保存されるPNGは1080×1920です。</p>
+  <section id="secSave">
+    <h2>3. 保存する</h2>
     <button class="save" id="btnSave">PNGを保存する</button>
     <p class="note">iPhone・iPadではボタンが「画像を保存・共有する」に変わり、共有シートから写真に保存できます。</p>
   </section>
 
-  <section>
+  <section class="preview-wrap">
+    <h2 style="text-align:left">プレビュー（1080×1920）</h2>
+    <canvas id="preview" width="540" height="960"></canvas>
+    <p class="note">市松模様の部分が透明＝動画が見える場所です。保存されるPNGは1080×1920です。</p>
+  </section>
+
+  <section id="secUsage">
     <h2>使い方（重ねる側）</h2>
     <p class="note">保存したPNGを、CapCut・VLLOなどの動画編集アプリで「レイヤー／オーバーレイ／画中画」として動画の上に重ねてください。フレームの窓から動画が見えます。9:16動画用（帯）は、スマホで撮った縦動画の上にそのまま重ねます。</p>
     <p class="note">※デザインは3種類の固定デザインから選びます。</p>
@@ -123,12 +147,18 @@
 "use strict";
 const W = 1080, H = 1920;
 const LS_KEY = "frame-factory-v2";
-const SIZES = { L:92, M:64, S:44 };
+const SIZES = { L:166, M:92, S:64 };
+const FONTS = {
+  gothic: { family:"'Noto Sans JP'",        weight:"900" },
+  maru:   { family:"'Zen Maru Gothic'",     weight:"900" },
+  mincho: { family:"'Shippori Mincho B1'",  weight:"800" }
+};
 const state = {
   type: "wide",
   top:    [ { text:"", size:"M" }, { text:"", size:"L" } ],
   bottom: [ { text:"", size:"M" }, { text:"", size:"M" }, { text:"", size:"M" }, { text:"", size:"M" } ],
   footer: "よろしくお願いします！",
+  font: "gothic",
   sample: true
 };
 
@@ -182,15 +212,33 @@ const pfctx = pvfull.getContext("2d");
 const pv = document.getElementById("preview");
 const pctx = pv.getContext("2d");
 
-const FONT_STACK = "Arial,'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif"; // digits in Arial on purpose
+// Arial first on purpose: digits always render in Arial (user dislikes the base bar on "1" in Japanese fonts)
+function fontSpec(){
+  return FONTS[state.font] || FONTS.gothic;
+}
+function fontStack(){
+  return "Arial," + fontSpec().family + ",'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif";
+}
 function fitFont(ctx, text, maxW, startPx, weight){
+  const stack = fontStack();
   let px = startPx;
-  ctx.font = weight + " " + px + "px " + FONT_STACK;
+  ctx.font = weight + " " + px + "px " + stack;
   while (px > 24 && ctx.measureText(text).width > maxW) {
     px -= 4;
-    ctx.font = weight + " " + px + "px " + FONT_STACK;
+    ctx.font = weight + " " + px + "px " + stack;
   }
   return px;
+}
+// Wait for the selected web font before drawing; on failure/timeout fall back to local fonts.
+async function ensureFont(){
+  const f = fontSpec();
+  try {
+    await Promise.race([
+      document.fonts.load(f.weight + " 40px " + f.family),
+      new Promise(r => setTimeout(r, 2500))
+    ]);
+  } catch(e) { /* fall back to local font stack */ }
+  render();
 }
 function drawSampleVideo(ctx, win){
   const g = ctx.createLinearGradient(win.x, win.y, win.x + win.w, win.y + win.h);
@@ -253,7 +301,7 @@ function drawBlock(lines, area){
   lines.forEach(ln => {
     const t = (ln.text || "").trim();
     if (!t) return;
-    const px = fitFont(octx, t, area.maxW, SIZES[ln.size] || SIZES.M, "bold");
+    const px = fitFont(octx, t, area.maxW, SIZES[ln.size] || SIZES.M, fontSpec().weight);
     items.push({ t, px });
   });
   if (!items.length) return;
@@ -268,8 +316,10 @@ function drawBlock(lines, area){
   let y = area.y0 + (areaH - total) / 2;
   octx.fillStyle = "#fff";
   octx.textAlign = (area.align === "left") ? "left" : "center";
+  const stack = fontStack();
+  const weight = fontSpec().weight;
   items.forEach(it => {
-    octx.font = "bold " + it.px + "px " + FONT_STACK;
+    octx.font = weight + " " + it.px + "px " + stack;
     octx.fillText(it.t, area.x, y + it.px * PITCH / 2);
     y += it.px * PITCH;
   });
@@ -278,8 +328,8 @@ function drawBlock(lines, area){
 function drawFooter(area){
   const t = (state.footer || "").trim();
   if (!t || !area) return;
-  const px = fitFont(octx, t, 1000, FOOTER_PX, "bold");
-  octx.font = "bold " + px + "px " + FONT_STACK;
+  const px = fitFont(octx, t, 1000, FOOTER_PX, fontSpec().weight);
+  octx.font = fontSpec().weight + " " + px + "px " + fontStack();
   octx.fillStyle = FOOTER_COLOR;
   octx.textAlign = "center";
   octx.fillText(t, W/2, (area.y0 + area.y1) / 2);
@@ -296,6 +346,7 @@ function loadState(){
       if (Array.isArray(s.top)) s.top.forEach((ln, i) => { if (ln && state.top[i]) { state.top[i].text = ln.text || ""; if (SIZES[ln.size]) state.top[i].size = ln.size; } });
       if (Array.isArray(s.bottom)) s.bottom.forEach((ln, i) => { if (ln && state.bottom[i]) { state.bottom[i].text = ln.text || ""; if (SIZES[ln.size]) state.bottom[i].size = ln.size; } });
       if (typeof s.footer === "string") state.footer = s.footer;
+      if (s.font && FONTS[s.font]) state.font = s.font;
       if (s.sample !== undefined) state.sample = s.sample;
     }
   } catch(e) {}
@@ -329,6 +380,11 @@ function bindLine(inputId, selectId, group, idx){
 for (let i = 0; i < 2; i++) bindLine("inTop" + i, "selTop" + i, "top", i);
 for (let i = 0; i < 4; i++) bindLine("inBot" + i, "selBot" + i, "bottom", i);
 document.getElementById("inFooter").addEventListener("input", (e) => { state.footer = e.target.value; saveState(); render(); });
+document.getElementById("selFont").addEventListener("change", (e) => {
+  state.font = e.target.value;
+  saveState();
+  ensureFont(); // re-renders once the web font is ready (or falls back on timeout)
+});
 document.getElementById("chkSample").addEventListener("change", (e) => {
   state.sample = e.target.checked; saveState(); render();
 });
@@ -373,9 +429,11 @@ state.bottom.forEach((ln, i) => {
   document.getElementById("selBot" + i).value = ln.size;
 });
 document.getElementById("inFooter").value = state.footer;
+document.getElementById("selFont").value = state.font;
 document.getElementById("chkSample").checked = state.sample;
 applyTypeUI();
 render();
+ensureFont();
 </script>
 </body>
 </html>
