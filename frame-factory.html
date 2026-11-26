@@ -7,7 +7,7 @@
 <meta name="description" content="縦動画（9:16）に重ねるフレームPNGを作るツール。16:9動画用・1:1動画用の窓あきフレームと、9:16動画用の帯フレーム。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@900&family=Zen+Maru+Gothic:wght@900&family=Shippori+Mincho+B1:wght@800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@900&family=Zen+Maru+Gothic:wght@900&display=swap" rel="stylesheet">
 <style>
   :root { --blue:#043E80; --yellow:#f5b500; --bg:#f4f6f9; }
   * { box-sizing:border-box; }
@@ -108,7 +108,6 @@
       <select id="selFont">
         <option value="gothic">ゴシック</option>
         <option value="maru">丸ゴシック</option>
-        <option value="mincho">明朝</option>
       </select>
       <p class="note">数字は見やすいよう、どのフォントでも英字フォントで表示します。</p>
     </div>
@@ -149,9 +148,8 @@ const W = 1080, H = 1920;
 const LS_KEY = "frame-factory-v2";
 const SIZES = { L:166, M:92, S:64 };
 const FONTS = {
-  gothic: { family:"'Noto Sans JP'",        weight:"900" },
-  maru:   { family:"'Zen Maru Gothic'",     weight:"900" },
-  mincho: { family:"'Shippori Mincho B1'",  weight:"800" }
+  gothic: { family:"'Noto Sans JP'",    weight:"900" },
+  maru:   { family:"'Zen Maru Gothic'", weight:"900" }
 };
 const state = {
   type: "wide",
