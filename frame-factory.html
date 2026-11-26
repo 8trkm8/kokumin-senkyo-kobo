@@ -71,30 +71,30 @@
       <h3>上の文字</h3>
       <div class="linerow">
         <div class="txt"><label for="inTop0">上1行目</label><input type="text" id="inTop0" maxlength="30" placeholder="例：〇〇市政策委員"></div>
-        <select id="selTop0" aria-label="上1行目のサイズ"><option value="L">大</option><option value="M" selected>中</option><option value="S">小</option></select>
+        <select id="selTop0" aria-label="上1行目のサイズ"><option value="XL">特大</option><option value="L">大</option><option value="M" selected>中</option><option value="S">小</option></select>
       </div>
       <div class="linerow">
         <div class="txt"><label for="inTop1">上2行目</label><input type="text" id="inTop1" maxlength="30" placeholder="例：名前"></div>
-        <select id="selTop1" aria-label="上2行目のサイズ"><option value="L" selected>大</option><option value="M">中</option><option value="S">小</option></select>
+        <select id="selTop1" aria-label="上2行目のサイズ"><option value="XL" selected>特大</option><option value="L">大</option><option value="M">中</option><option value="S">小</option></select>
       </div>
     </div>
     <div id="groupBottom">
       <h3>下の文字</h3>
       <div class="linerow">
         <div class="txt"><label for="inBot0">下1行目</label><input type="text" id="inBot0" maxlength="30" placeholder="例：投票日を入れたり"></div>
-        <select id="selBot0" aria-label="下1行目のサイズ"><option value="L">大</option><option value="M" selected>中</option><option value="S">小</option></select>
+        <select id="selBot0" aria-label="下1行目のサイズ"><option value="XL">特大</option><option value="L">大</option><option value="M" selected>中</option><option value="S">小</option></select>
       </div>
       <div class="linerow">
         <div class="txt"><label for="inBot1">下2行目</label><input type="text" id="inBot1" maxlength="30" placeholder="例：入れたいことを入れて"></div>
-        <select id="selBot1" aria-label="下2行目のサイズ"><option value="L">大</option><option value="M" selected>中</option><option value="S">小</option></select>
+        <select id="selBot1" aria-label="下2行目のサイズ"><option value="XL">特大</option><option value="L">大</option><option value="M" selected>中</option><option value="S">小</option></select>
       </div>
       <div class="linerow">
         <div class="txt"><label for="inBot2">下3行目</label><input type="text" id="inBot2" maxlength="30"></div>
-        <select id="selBot2" aria-label="下3行目のサイズ"><option value="L">大</option><option value="M" selected>中</option><option value="S">小</option></select>
+        <select id="selBot2" aria-label="下3行目のサイズ"><option value="XL">特大</option><option value="L">大</option><option value="M" selected>中</option><option value="S">小</option></select>
       </div>
       <div class="linerow">
         <div class="txt"><label for="inBot3">下4行目</label><input type="text" id="inBot3" maxlength="30"></div>
-        <select id="selBot3" aria-label="下4行目のサイズ"><option value="L">大</option><option value="M" selected>中</option><option value="S">小</option></select>
+        <select id="selBot3" aria-label="下4行目のサイズ"><option value="XL">特大</option><option value="L">大</option><option value="M" selected>中</option><option value="S">小</option></select>
       </div>
     </div>
     <div id="fieldFooter">
@@ -151,19 +151,20 @@
 "use strict";
 const W = 1080, H = 1920;
 const LS_KEY = "frame-factory-v2";
-const SIZES = { L:166, M:92, S:64 };
+const SIZES = { XL:166, L:130, M:92, S:64 };
 const FONTS = {
   gothic: { family:"'Noto Sans JP'",    weight:"900" },
   maru:   { family:"'Zen Maru Gothic'", weight:"900" }
 };
 const state = {
   type: "wide",
-  top:    [ { text:"", size:"M" }, { text:"", size:"L" } ],
+  top:    [ { text:"", size:"M" }, { text:"", size:"XL" } ],
   bottom: [ { text:"", size:"M" }, { text:"", size:"M" }, { text:"", size:"M" }, { text:"", size:"M" } ],
   footer: "よろしくお願いします！",
   fontTop: "gothic",
   fontBottom: "gothic",
-  sample: true
+  sample: true,
+  sizeV: 2
 };
 
 // ---- fixed designs (1080x1920, window already transparent) ----
@@ -366,8 +367,9 @@ function loadState(){
     const s = JSON.parse(localStorage.getItem(LS_KEY) || "null");
     if (s) {
       if (s.type) state.type = s.type;
-      if (Array.isArray(s.top)) s.top.forEach((ln, i) => { if (ln && state.top[i]) { state.top[i].text = ln.text || ""; if (SIZES[ln.size]) state.top[i].size = ln.size; } });
-      if (Array.isArray(s.bottom)) s.bottom.forEach((ln, i) => { if (ln && state.bottom[i]) { state.bottom[i].text = ln.text || ""; if (SIZES[ln.size]) state.bottom[i].size = ln.size; } });
+      const migSize = (sz) => (!s.sizeV && sz === "L") ? "XL" : sz;
+      if (Array.isArray(s.top)) s.top.forEach((ln, i) => { if (ln && state.top[i]) { state.top[i].text = ln.text || ""; const sz = migSize(ln.size); if (SIZES[sz]) state.top[i].size = sz; } });
+      if (Array.isArray(s.bottom)) s.bottom.forEach((ln, i) => { if (ln && state.bottom[i]) { state.bottom[i].text = ln.text || ""; const sz = migSize(ln.size); if (SIZES[sz]) state.bottom[i].size = sz; } });
       if (typeof s.footer === "string") state.footer = s.footer;
       if (s.font && FONTS[s.font]) { state.fontTop = s.font; state.fontBottom = s.font; }
       if (s.fontTop && FONTS[s.fontTop]) state.fontTop = s.fontTop;
