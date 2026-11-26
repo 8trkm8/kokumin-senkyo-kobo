@@ -195,13 +195,13 @@ const LAYOUT = {
   },
   square: {
     top:    { y0:175,  y1:420,  align:"center", x:540, maxW:980 },
-    bottom: { y0:1498, y1:1830, align:"center", x:540, maxW:1020 },
+    bottom: { y0:1498, y1:1830, align:"left",   x:60,  maxW:780 },
     footer: { y0:1830, y1:1920 }
   },
   band: {
     top:    { y0:30,   y1:345,  align:"left",   x:120, maxW:620 },
     bottom: null,
-    footer: { y0:1870, y1:1920 }
+    footer: { y0:1870, y1:1920, maxPx:30 }
   }
 };
 const FOOTER_COLOR = "#0a3d75";
@@ -300,40 +300,58 @@ function render(){
   pctx.drawImage(pvfull, 0, 0, pv.width, pv.height);
 }
 
-// stack non-empty lines vertically inside area {y0,y1,align,x,maxW}, auto-shrinking to fit
+// stack non-empty lines inside area {y0,y1,align,x,maxW}, auto-shrinking to fit.
+// Vertical placement centers the measured ink (actualBoundingBox) in the area,
+// not the em box, so the block sits at the true visual center of the band.
 function drawBlock(lines, area, which){
+  const stack = fontStack(which);
+  const weight = fontSpec(which).weight;
   const items = [];
   lines.forEach(ln => {
     const t = (ln.text || "").trim();
     if (!t) return;
-    const px = fitFont(octx, t, area.maxW, SIZES[ln.size] || SIZES.M, fontSpec(which).weight, which);
+    const px = fitFont(octx, t, area.maxW, SIZES[ln.size] || SIZES.M, weight, which);
     items.push({ t, px });
   });
   if (!items.length) return;
-  const PITCH = 1.3;
-  let total = items.reduce((a, it) => a + it.px * PITCH, 0);
+  const GAPF = 0.3; // inter-line gap, as a fraction of the smaller adjacent font size
+  octx.textBaseline = "alphabetic";
+  function measure(){
+    let total = 0;
+    items.forEach((it, i) => {
+      octx.font = weight + " " + it.px + "px " + stack;
+      const m = octx.measureText(it.t);
+      it.asc  = (m.actualBoundingBoxAscent  !== undefined) ? m.actualBoundingBoxAscent  : it.px * 0.9;
+      it.desc = (m.actualBoundingBoxDescent !== undefined) ? m.actualBoundingBoxDescent : it.px * 0.15;
+      it.ink = it.asc + it.desc;
+      total += it.ink;
+      if (i) total += GAPF * Math.min(items[i - 1].px, it.px);
+    });
+    return total;
+  }
+  let total = measure();
   const areaH = area.y1 - area.y0;
   if (total > areaH) {
     const f = areaH / total;
     items.forEach(it => { it.px = Math.max(16, Math.floor(it.px * f)); });
-    total = items.reduce((a, it) => a + it.px * PITCH, 0);
+    total = measure();
   }
-  let y = area.y0 + (areaH - total) / 2;
+  let inkTop = area.y0 + (areaH - total) / 2;
   octx.fillStyle = "#fff";
   octx.textAlign = (area.align === "left") ? "left" : "center";
-  const stack = fontStack(which);
-  const weight = fontSpec(which).weight;
-  items.forEach(it => {
+  items.forEach((it, i) => {
+    if (i) inkTop += GAPF * Math.min(items[i - 1].px, it.px);
     octx.font = weight + " " + it.px + "px " + stack;
-    octx.fillText(it.t, area.x, y + it.px * PITCH / 2);
-    y += it.px * PITCH;
+    octx.fillText(it.t, area.x, inkTop + it.asc);
+    inkTop += it.ink;
   });
+  octx.textBaseline = "middle"; // restore for drawFooter
 }
 
 function drawFooter(area){
   const t = (state.footer || "").trim();
   if (!t || !area) return;
-  const px = fitFont(octx, t, 1000, FOOTER_PX, fontSpec("bottom").weight, "bottom");
+  const px = fitFont(octx, t, 1000, area.maxPx || FOOTER_PX, fontSpec("bottom").weight, "bottom");
   octx.font = fontSpec("bottom").weight + " " + px + "px " + fontStack("bottom");
   octx.fillStyle = FOOTER_COLOR;
   octx.textAlign = "center";
