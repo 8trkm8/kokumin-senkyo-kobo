@@ -18,10 +18,7 @@
   main { max-width:640px; margin:0 auto; padding:16px 16px 40px; }
   section { background:#fff; border-radius:10px; padding:16px; margin-bottom:14px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
   h2 { font-size:15px; margin:0 0 10px; }
-  .types { display:flex; gap:8px; flex-wrap:wrap; }
-  .types button { flex:1 1 30%; border:2px solid #cdd7e4; background:#fff; border-radius:8px; padding:10px 4px; font-size:13px; font-weight:bold; cursor:pointer; line-height:1.4; }
-  .types button small { display:block; font-weight:normal; font-size:11px; color:#666; margin-top:2px; }
-  .types button.on { border-color:var(--blue); background:#e8f0fa; color:var(--blue); }
+  .dd label:first-of-type { margin-top:2px; }
   label { display:block; font-size:13px; font-weight:bold; margin:12px 0 4px; }
   input[type=text] { width:100%; font-size:15px; padding:9px 10px; border:1px solid #cdd7e4; border-radius:6px; }
   h3 { font-size:13px; margin:16px 0 2px; color:var(--blue); }
@@ -57,13 +54,15 @@
 <main>
   <section id="secDesign">
     <h2>1. デザインを選ぶ</h2>
-    <div class="types" id="types">
-      <button data-type="wide" class="on">16:9動画用<small>横動画を窓に収める</small></button>
-      <button data-type="square">1:1動画用<small>正方形動画を窓に収める</small></button>
-      <button data-type="band">9:16動画用（帯）<small>縦動画にそのまま重ねる</small></button>
-      <button data-type="wide-snow">16:9動画用（雪）<small>横動画を窓に収める</small></button>
-      <button data-type="square-snow">1:1動画用（雪）<small>正方形動画を窓に収める</small></button>
-      <button data-type="band-snow">9:16動画用（雪）<small>縦動画にそのまま重ねる</small></button>
+    <div class="dd">
+      <label for="selShape">動画の形</label>
+      <select id="selShape" class="selfont">
+        <option value="wide">16:9動画用</option>
+        <option value="square">1:1動画用</option>
+        <option value="band">9:16動画用</option>
+      </select>
+      <label for="selTheme">絵柄</label>
+      <select id="selTheme" class="selfont"></select>
     </div>
     <p class="note" id="typeNote">横向きの動画（国会中継など）を縦動画に収めるフレームです。窓の部分は透明で、動画が見えます。タイトルと名前を入れられます。</p>
   </section>
@@ -409,18 +408,51 @@ const typeNotes = {
   "square-snow": "1:1の動画を縦動画に収める、雪デザインのフレームです。上の青帯と下の青帯に文字を入れられます（下の文字は3行まで、フッターはありません）。",
   "band-snow": "スマホで撮った縦動画にそのまま重ねる、雪デザインの帯フレームです。上の青帯にだけ文字を入れられます（下の文字欄・フッターはありません）。"
 };
+// ---- two-dropdown design selector: shape x theme ----
+// 絵柄プルダウンには、選んだ形で使える絵柄だけを出す（将来の不揃いに対応）
+const THEMES = {
+  wide:   [ { key:"wide",        name:"基本形" }, { key:"wide-snow",   name:"雪" } ],
+  square: [ { key:"square",      name:"基本形" }, { key:"square-snow", name:"雪" } ],
+  band:   [ { key:"band",        name:"基本形" }, { key:"band-snow",   name:"雪" } ]
+};
+function shapeOf(type){
+  for (const sh in THEMES) if (THEMES[sh].some(d => d.key === type)) return sh;
+  return "wide";
+}
+let currentShape = null;
+const shapeSel = {}; // last chosen design per shape (session only; state.type is what persists)
+const selShapeEl = document.getElementById("selShape");
+const selThemeEl = document.getElementById("selTheme");
+function syncSelectorUI(){
+  if (!currentShape) { currentShape = shapeOf(state.type); shapeSel[currentShape] = state.type; }
+  selShapeEl.value = currentShape;
+  selThemeEl.innerHTML = "";
+  THEMES[currentShape].forEach(d => {
+    const o = document.createElement("option");
+    o.value = d.key;
+    o.textContent = d.name;
+    selThemeEl.appendChild(o);
+  });
+  selThemeEl.value = state.type;
+}
 function applyTypeUI(){
-  document.querySelectorAll("#types button").forEach(x => x.classList.toggle("on", x.dataset.type === state.type));
+  syncSelectorUI();
   document.getElementById("typeNote").textContent = typeNotes[state.type];
   const t = state.type;
   document.getElementById("groupBottom").style.display = (t === "band" || t === "band-snow") ? "none" : "";
   document.getElementById("botRow3").style.display = (t === "square" || t === "square-snow") ? "none" : "";
   document.getElementById("fieldFooter").style.display = (t === "band" || t === "band-snow" || t === "wide-snow" || t === "square-snow") ? "none" : "";
 }
-document.getElementById("types").addEventListener("click", (e) => {
-  const b = e.target.closest("button[data-type]");
-  if (!b) return;
-  state.type = b.dataset.type;
+selShapeEl.addEventListener("change", () => {
+  if (selShapeEl.value === currentShape) return;
+  currentShape = selShapeEl.value;
+  state.type = shapeSel[currentShape] || THEMES[currentShape][0].key;
+  applyTypeUI();
+  saveState(); render();
+});
+selThemeEl.addEventListener("change", () => {
+  state.type = selThemeEl.value;
+  shapeSel[currentShape] = state.type;
   applyTypeUI();
   saveState(); render();
 });
