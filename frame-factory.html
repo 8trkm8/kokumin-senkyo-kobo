@@ -57,9 +57,9 @@
     <div class="dd">
       <label for="selShape">動画の形</label>
       <select id="selShape" class="selfont">
-        <option value="wide">16:9動画用</option>
-        <option value="square">1:1動画用</option>
-        <option value="band">9:16動画用</option>
+        <option value="wide">横動画を縦動画にしたい</option>
+        <option value="square">動画を正方形スペースくらい見せたい</option>
+        <option value="band">縦動画を生かしたい</option>
       </select>
       <label for="selTheme">絵柄</label>
       <select id="selTheme" class="selfont"></select>
@@ -210,17 +210,23 @@ const LAYOUT = {
     footer: null
   },
   "wide-snow": {
-    top:    { y0:378,  y1:653,  align:"center", x:540, maxW:1020 },
+    top:    { y0:362,  y1:635,  align:"center", x:540, maxW:1020 },
     bottom: { y0:1382, y1:1796, align:"center", x:540, maxW:1020 },
     footer: null
   },
   "square-snow": {
-    top:    { y0:150,  y1:490,  align:"center", x:665, maxW:680 },
+    top:    { lines: [
+      { y0:150, y1:300, align:"center", x:665, maxW:680 },
+      { y0:300, y1:490, align:"center", x:540, maxW:1020 }
+    ] },
     bottom: { y0:1576, y1:1798, align:"center", x:540, maxW:800 },
     footer: null
   },
   "band-snow": {
-    top:    { y0:265,  y1:490,  align:"center", x:540, maxW:920 },
+    top:    { lines: [
+      { y0:150, y1:300, align:"center", x:665, maxW:680 },
+      { y0:300, y1:490, align:"center", x:540, maxW:1020 }
+    ] },
     bottom: null,
     footer: null
   }
@@ -309,7 +315,8 @@ function render(){
   octx.drawImage(imgs[state.type], 0, 0, W, H);
   octx.textBaseline = "middle";
 
-  drawBlock(state.top, lay.top, "top");
+  if (lay.top.lines) lay.top.lines.forEach((a, i) => { if (a && state.top[i]) drawBlock([state.top[i]], a, "top"); });
+  else drawBlock(state.top, lay.top, "top");
   if (lay.bottom) drawBlock((state.type === "square" || state.type === "square-snow") ? state.bottom.slice(0, 3) : state.bottom, lay.bottom, "bottom");
   drawFooter(lay.footer);
 
