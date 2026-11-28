@@ -316,22 +316,22 @@ const LAYOUT = {
   },
   "l-kihon": {
     lshape: true,
-    vText: { color:"#231f20", topY:188, nameCx:110, titleCx:218, namePx:120, titlePx:58 },
+    vText: { color:"#231f20", topY:188, nameCx:218, titleCx:110, namePx:120, titlePx:58 },
     bandText: { color:"#ffffff", x0:285, x1:1638, y0:923, y1:1080 }
   },
   "l-snow": {
     lshape: true,
-    vText: { color:"#ffffff", topY:188, nameCx:112, titleCx:222, namePx:120, titlePx:58 },
+    vText: { color:"#ffffff", topY:188, nameCx:222, titleCx:112, namePx:120, titlePx:58 },
     bandText: { color:"#ffffff", x0:290, x1:1706, y0:920, y1:1080 }
   },
   "l-cha": {
     lshape: true,
-    vText: { color:"#ffffff", topY:188, nameCx:109, titleCx:216, namePx:120, titlePx:58 },
+    vText: { color:"#ffffff", topY:188, nameCx:216, titleCx:109, namePx:120, titlePx:58 },
     bandText: { color:"#ffffff", x0:283, x1:1710, y0:921, y1:1080 }
   },
   "l-hokuo": {
     lshape: true,
-    vText: { color:"#231f20", topY:167, nameCx:100, titleCx:197, namePx:120, titlePx:58 },
+    vText: { color:"#231f20", topY:167, nameCx:197, titleCx:100, namePx:120, titlePx:58, bandR:259 },
     bandText: { color:"#231f20", x0:283, x1:1797, y0:946, y1:1080 }
   }
 };
@@ -525,6 +525,35 @@ function drawVertical(text, cx, topY, startPx, color, maxBottom){
     cy += adv(px);
   });
 }
+// Final px drawVertical will actually use for a column (it shrinks to fit vertically).
+function vFinalPx(text, startPx, topY, maxBottom){
+  const n = [...(text || "").trim()].length;
+  if (!n) return startPx;
+  let px = startPx;
+  while (px > 20 && topY + px * 1.12 * n > maxBottom) px -= 4;
+  return px;
+}
+// Ink extents (left/right of the column center) of a vertical column at a given px.
+// Rotated glyphs swap axes: their horizontal ink comes from the glyph's vertical ink.
+function vInkLR(text, px){
+  const weight = fontSpec("l").weight;
+  octx.font = weight + " " + px + "px " + fontStack("l");
+  octx.textAlign = "center";
+  octx.textBaseline = "middle";
+  let l = 0, r = 0;
+  for (const chr of [...(text || "").trim()]) {
+    const m = octx.measureText(chr);
+    if (VROT.has(chr)) {
+      const a = (m.actualBoundingBoxAscent !== undefined) ? m.actualBoundingBoxAscent : px * 0.9;
+      const d = (m.actualBoundingBoxDescent !== undefined) ? m.actualBoundingBoxDescent : px * 0.15;
+      l = Math.max(l, d); r = Math.max(r, a);
+    } else {
+      l = Math.max(l, (m.actualBoundingBoxLeft !== undefined) ? m.actualBoundingBoxLeft : px / 2);
+      r = Math.max(r, (m.actualBoundingBoxRight !== undefined) ? m.actualBoundingBoxRight : px / 2);
+    }
+  }
+  return { l, r };
+}
 function drawLText(lay){
   const v = lay.vText;
   const maxBottom = (DESIGNS[state.type].ch || H) - 24;
@@ -532,31 +561,50 @@ function drawLText(lay){
   let tPx = L_SIZES.title[state.lsizeTitle] || L_SIZES.title.M;
   // Horizontal fit of the two vertical columns inside the left band: if the chosen
   // sizes would spill out of the band or into each other, shrink both columns by a
-  // common factor so their balance is kept. At the default M/M this never triggers,
-  // so the original rendering is unchanged.
+  // common factor so their balance is kept. The name column sits on the RIGHT and
+  // the title column on the LEFT (vertical-text reading order), so the fit works
+  // with the columns sorted by center x instead of assuming a field per side.
   const hasN = !!(state.lname || "").trim(), hasT = !!(state.ltitle || "").trim();
   if (hasN || hasT) {
     const leftB = 12, rightB = DESIGNS[state.type].win.x - 10, minGap = 4;
+    const cols = [];
+    if (hasN) cols.push({ cx: v.nameCx, px: nPx });
+    if (hasT) cols.push({ cx: v.titleCx, px: tPx });
+    cols.sort((a, b) => a.cx - b.cx);
     let f = 1;
-    if (hasN) {
-      if (v.nameCx - nPx / 2 < leftB) f = Math.min(f, (v.nameCx - leftB) * 2 / nPx);
-      if (!hasT && v.nameCx + nPx / 2 > rightB) f = Math.min(f, (rightB - v.nameCx) * 2 / nPx);
-    }
-    if (hasT) {
-      if (v.titleCx + tPx / 2 > rightB) f = Math.min(f, (rightB - v.titleCx) * 2 / tPx);
-      if (!hasN && v.titleCx - tPx / 2 < leftB) f = Math.min(f, (v.titleCx - leftB) * 2 / tPx);
-    }
-    if (hasN && hasT) {
-      const need = (nPx + tPx) / 2 + minGap, have = v.titleCx - v.nameCx;
-      if (need > have) f = Math.min(f, (have - minGap) * 2 / (nPx + tPx));
+    const cL = cols[0], cR = cols[cols.length - 1];
+    if (cL.cx - cL.px / 2 < leftB) f = Math.min(f, (cL.cx - leftB) * 2 / cL.px);
+    if (cR.cx + cR.px / 2 > rightB) f = Math.min(f, (rightB - cR.cx) * 2 / cR.px);
+    if (cols.length === 2) {
+      const need = (cL.px + cR.px) / 2 + minGap, have = cR.cx - cL.cx;
+      if (need > have) f = Math.min(f, (have - minGap) * 2 / (cL.px + cR.px));
     }
     if (f < 1) {
       nPx = Math.max(20, Math.floor(nPx * f));
       tPx = Math.max(16, Math.floor(tPx * f));
     }
   }
-  drawVertical(state.lname, v.nameCx, v.topY, nPx, v.color, maxBottom);
-  drawVertical(state.ltitle, v.titleCx, v.topY, tPx, v.color, maxBottom);
+  // Re-center the column pair as a set: after every sizing step above (size picks,
+  // common-factor fit, and drawVertical's own vertical fit), shift both columns by
+  // the same amount so the pair's ink bounding box is centered in the left band's
+  // usable width (the whole band, or up to the teal line when the layout sets bandR).
+  let nameCx = v.nameCx, titleCx = v.titleCx;
+  if (hasN || hasT) {
+    const availR = (v.bandR !== undefined) ? v.bandR : DESIGNS[state.type].win.x;
+    let inkL = Infinity, inkR = -Infinity;
+    if (hasN) {
+      const e = vInkLR(state.lname, vFinalPx(state.lname, nPx, v.topY, maxBottom));
+      inkL = Math.min(inkL, nameCx - e.l); inkR = Math.max(inkR, nameCx + e.r);
+    }
+    if (hasT) {
+      const e = vInkLR(state.ltitle, vFinalPx(state.ltitle, tPx, v.topY, maxBottom));
+      inkL = Math.min(inkL, titleCx - e.l); inkR = Math.max(inkR, titleCx + e.r);
+    }
+    const shift = availR / 2 - (inkL + inkR) / 2;
+    nameCx += shift; titleCx += shift;
+  }
+  drawVertical(state.lname, nameCx, v.topY, nPx, v.color, maxBottom);
+  drawVertical(state.ltitle, titleCx, v.topY, tPx, v.color, maxBottom);
   const t = (state.lband || "").trim();
   if (t) {
     const a = lay.bandText;
