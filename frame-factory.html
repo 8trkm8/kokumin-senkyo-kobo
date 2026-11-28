@@ -103,13 +103,14 @@
     </div>
     <div id="groupL" style="display:none">
       <h3>L字の文字（左の帯は縦書き）</h3>
+      <p class="note">右の行・左の行には、名前や肩書きなど好きな文字を入れられます。文字の大きさは行ごとに選べます（右の行を大きくしても、左の行を大きくしても大丈夫です）。</p>
       <div class="linerow">
-        <div class="txt"><label for="inLName">名前（縦書き・大）</label><input type="text" id="inLName" maxlength="12" placeholder="例：兎田はね美"></div>
-        <select id="selLNameSize" aria-label="名前のサイズ"><option value="XL">特大</option><option value="L">大</option><option value="M" selected>中</option><option value="S">小</option></select>
+        <div class="txt"><label for="inLName">右の行（縦書き）</label><input type="text" id="inLName" maxlength="16" placeholder="例：兎田はね美（名前など自由に）"></div>
+        <select id="selLNameSize" aria-label="右の行のサイズ"><option value="XL">特大</option><option value="L" selected>大</option><option value="M">中</option><option value="S">小</option></select>
       </div>
       <div class="linerow">
-        <div class="txt"><label for="inLTitle">肩書き（縦書き・小）</label><input type="text" id="inLTitle" maxlength="16" placeholder="例：月見野市政策委員"></div>
-        <select id="selLTitleSize" aria-label="肩書きのサイズ"><option value="XL">特大</option><option value="L">大</option><option value="M" selected>中</option><option value="S">小</option></select>
+        <div class="txt"><label for="inLTitle">左の行（縦書き）</label><input type="text" id="inLTitle" maxlength="16" placeholder="例：月見野市政策委員（肩書きなど自由に）"></div>
+        <select id="selLTitleSize" aria-label="左の行のサイズ"><option value="XL">特大</option><option value="L">大</option><option value="M">中</option><option value="S" selected>小</option></select>
       </div>
       <div class="linerow">
         <div class="txt"><label for="inLBand">下の帯の文字（横書き・1行）</label><input type="text" id="inLBand" maxlength="40" placeholder="例：12/30 月見野駅西口で街頭演説します"></div>
@@ -162,7 +163,7 @@
   <section id="secUsage">
     <h2>使い方（重ねる側）</h2>
     <p class="note">保存したPNGを、CapCut・VLLOなどの動画編集アプリで「レイヤー／オーバーレイ／画中画」として動画の上に重ねてください。フレームの窓から動画が見えます。9:16動画用（帯）は、スマホで撮った縦動画の上にそのまま重ねます。</p>
-    <p class="note">L字フレーム（1920×1080）は、横動画（16:9）の上にそのまま重ねてください。左の帯に名前と肩書き（縦書き）、下の帯に日時や場所（横書き）が入ります。</p>
+    <p class="note">L字フレーム（1920×1080）は、横動画（16:9）の上にそのまま重ねてください。左の帯に縦書きの文字（2行）、下の帯に日時や場所（横書き）が入ります。</p>
     <p class="note">※デザインは固定デザインから選びます。</p>
   </section>
 </main>
@@ -178,11 +179,19 @@
 const W = 1080, H = 1920;
 const LS_KEY = "frame-factory-v2";
 const SIZES = { XL:166, L:130, M:92, S:64 };
-// L-shape per-field size tables (M matches the original fixed px: name 120 / title 58 / band 68)
+// L-shape size tables. The two vertical rows share one table (col) so either row
+// can be picked large or small; the rows are positional (right row / left row),
+// not tied to a meaning. Defaults right=L (120px) / left=S (58px) reproduce the
+// original fixed look (name 120 / title 58 / band M=68).
 const L_SIZES = {
+  col:  { S:58, M:84,  L:120, XL:180 },
+  band: { S:48, M:68,  L:88,  XL:108 }
+};
+// Pre-unification per-field tables, kept only to migrate old saved size picks
+// (see loadState): old keys meant these px under the field's own table.
+const L_SIZES_OLD = {
   name:  { S:84, M:120, L:150, XL:180 },
-  title: { S:40, M:58,  L:76,  XL:94 },
-  band:  { S:48, M:68,  L:88,  XL:108 }
+  title: { S:40, M:58,  L:76,  XL:94 }
 };
 const FONTS = {
   gothic: { family:"'Noto Sans JP'",    weight:"900" },
@@ -199,9 +208,10 @@ const state = {
   lname: "",
   ltitle: "",
   lband: "",
-  lsizeName: "M",
-  lsizeTitle: "M",
+  lsizeName: "L",
+  lsizeTitle: "S",
   lsizeBand: "M",
+  lsizeV: 2,
   sample: true,
   sizeV: 2
 };
@@ -496,7 +506,8 @@ function drawFooter(area){
   octx.fillText(t, W/2, (area.y0 + area.y1) / 2);
 }
 
-// ---- L-shape (1920x1080) text: vertical name/title in the left band, one horizontal line in the bottom band ----
+// ---- L-shape (1920x1080) text: two vertical rows in the left band (right row = state.lname,
+// left row = state.ltitle; positional, either can hold any text), one horizontal line below ----
 // Characters that must be rotated 90 degrees to read correctly in vertical writing.
 const VROT = new Set([..."ー―…‥「」『』（）()【】［］〈〉《》・：；｜!！?？〜～"]);
 function drawVertical(text, cx, topY, startPx, color, maxBottom){
@@ -557,12 +568,12 @@ function vInkLR(text, px){
 function drawLText(lay){
   const v = lay.vText;
   const maxBottom = (DESIGNS[state.type].ch || H) - 24;
-  let nPx = L_SIZES.name[state.lsizeName] || L_SIZES.name.M;
-  let tPx = L_SIZES.title[state.lsizeTitle] || L_SIZES.title.M;
+  let nPx = L_SIZES.col[state.lsizeName] || L_SIZES.col.L;
+  let tPx = L_SIZES.col[state.lsizeTitle] || L_SIZES.col.S;
   // Horizontal fit of the two vertical columns inside the left band: if the chosen
   // sizes would spill out of the band or into each other, shrink both columns by a
-  // common factor so their balance is kept. The name column sits on the RIGHT and
-  // the title column on the LEFT (vertical-text reading order), so the fit works
+  // common factor so their balance is kept. The lname column sits on the RIGHT and
+  // the ltitle column on the LEFT (vertical-text reading order), so the fit works
   // with the columns sorted by center x instead of assuming a field per side.
   const hasN = !!(state.lname || "").trim(), hasT = !!(state.ltitle || "").trim();
   if (hasN || hasT) {
@@ -581,7 +592,7 @@ function drawLText(lay){
     }
     if (f < 1) {
       nPx = Math.max(20, Math.floor(nPx * f));
-      tPx = Math.max(16, Math.floor(tPx * f));
+      tPx = Math.max(20, Math.floor(tPx * f));
     }
   }
   // Re-center the column pair as a set: after every sizing step above (size picks,
@@ -647,8 +658,23 @@ function loadState(){
       if (typeof s.lname === "string") state.lname = s.lname;
       if (typeof s.ltitle === "string") state.ltitle = s.ltitle;
       if (typeof s.lband === "string") state.lband = s.lband;
-      if (s.lsizeName && L_SIZES.name[s.lsizeName]) state.lsizeName = s.lsizeName;
-      if (s.lsizeTitle && L_SIZES.title[s.lsizeTitle]) state.lsizeTitle = s.lsizeTitle;
+      if (s.lsizeV >= 2) {
+        if (s.lsizeName && L_SIZES.col[s.lsizeName]) state.lsizeName = s.lsizeName;
+        if (s.lsizeTitle && L_SIZES.col[s.lsizeTitle]) state.lsizeTitle = s.lsizeTitle;
+      } else {
+        // Old saves picked sizes from per-field tables (name/title had different
+        // px per key). Read each pick back as the nearest step of the shared
+        // column table (ties go to the smaller step) so sizes barely move.
+        const migLCol = (field, key) => {
+          const px = key && L_SIZES_OLD[field][key];
+          if (!px) return;
+          let best = null, bd = Infinity;
+          for (const k of ["S", "M", "L", "XL"]) { const d = Math.abs(L_SIZES.col[k] - px); if (d < bd) { bd = d; best = k; } }
+          return best;
+        };
+        const mn = migLCol("name", s.lsizeName); if (mn) state.lsizeName = mn;
+        const mt = migLCol("title", s.lsizeTitle); if (mt) state.lsizeTitle = mt;
+      }
       if (s.lsizeBand && L_SIZES.band[s.lsizeBand]) state.lsizeBand = s.lsizeBand;
       if (s.sample !== undefined) state.sample = s.sample;
     }
@@ -669,10 +695,10 @@ const typeNotes = {
   "wide-cha": "横向きの動画を縦動画に収める、茶デザインのフレームです。上のエリアと下のエリアに文字を入れられます（文字は白、フッターはありません）。",
   "square-cha": "1:1の動画を縦動画に収める、茶デザインのフレームです。上のエリアと下のエリアに文字を入れられます（下の文字は3行まで、文字は白、フッターはありません）。",
   "band-cha": "スマホで撮った縦動画にそのまま重ねる、茶デザインの帯フレームです。上のエリアにだけ文字を入れられます（文字は白、下の文字欄・フッターはありません）。",
-  "l-kihon": "横向きの動画（16:9）をそのまま載せるL字フレームです。左の帯に名前と肩書きが縦書きで入り、下の青い帯に横書きで1行入れられます。保存されるPNGは1920×1080です。",
-  "l-snow": "横向きの動画（16:9）をそのまま載せる、雪デザインのL字フレームです。左の帯に名前と肩書きが縦書きで入り、下の帯に横書きで1行入れられます。保存されるPNGは1920×1080です。",
-  "l-hokuo": "横向きの動画（16:9）をそのまま載せる、北欧デザインのL字フレームです。左の帯に名前と肩書きが縦書きで入り、下の帯に横書きで1行入れられます（文字は黒）。保存されるPNGは1920×1080です。",
-  "l-cha": "横向きの動画（16:9）をそのまま載せる、茶デザインのL字フレームです。左の帯に名前と肩書きが縦書きで入り、下の帯に横書きで1行入れられます（文字は白）。保存されるPNGは1920×1080です。"
+  "l-kihon": "横向きの動画（16:9）をそのまま載せるL字フレームです。左の帯に縦書きの文字が2行入り、下の青い帯に横書きで1行入れられます。保存されるPNGは1920×1080です。",
+  "l-snow": "横向きの動画（16:9）をそのまま載せる、雪デザインのL字フレームです。左の帯に縦書きの文字が2行入り、下の帯に横書きで1行入れられます。保存されるPNGは1920×1080です。",
+  "l-hokuo": "横向きの動画（16:9）をそのまま載せる、北欧デザインのL字フレームです。左の帯に縦書きの文字が2行入り、下の帯に横書きで1行入れられます（文字は黒）。保存されるPNGは1920×1080です。",
+  "l-cha": "横向きの動画（16:9）をそのまま載せる、茶デザインのL字フレームです。左の帯に縦書きの文字が2行入り、下の帯に横書きで1行入れられます（文字は白）。保存されるPNGは1920×1080です。"
 };
 // ---- two-dropdown design selector: shape x theme ----
 // 絵柄プルダウンには、選んだ形で使える絵柄だけを出す（将来の不揃いに対応）
