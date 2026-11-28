@@ -528,7 +528,22 @@ function drawVertical(text, cx, topY, startPx, color, maxBottom){
       octx.save();
       octx.translate(cx, cy);
       octx.rotate(Math.PI / 2);
-      octx.fillText(chr, 0, 0);
+      // Center the glyph's INK on the cell center. Drawing at (0,0) with
+      // textBaseline "middle" centers the em box instead, and glyphs whose ink
+      // sits off the em center (e.g. ー, whose bar is above it) came out shifted
+      // sideways after rotation — ー sat ~10% of the font size to the right.
+      // With the alphabetic baseline, measureText's actual bounding box gives
+      // the ink's off-center amount on both axes, so offset by half of it.
+      octx.textBaseline = "alphabetic";
+      const m = octx.measureText(chr);
+      if (m.actualBoundingBoxAscent !== undefined && m.actualBoundingBoxLeft !== undefined) {
+        const ox = (m.actualBoundingBoxLeft - m.actualBoundingBoxRight) / 2;
+        const oy = (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
+        octx.fillText(chr, ox, oy);
+      } else {
+        octx.textBaseline = "middle";
+        octx.fillText(chr, 0, 0);
+      }
       octx.restore();
     } else {
       octx.fillText(chr, cx, cy);
@@ -557,7 +572,10 @@ function vInkLR(text, px){
     if (VROT.has(chr)) {
       const a = (m.actualBoundingBoxAscent !== undefined) ? m.actualBoundingBoxAscent : px * 0.9;
       const d = (m.actualBoundingBoxDescent !== undefined) ? m.actualBoundingBoxDescent : px * 0.15;
-      l = Math.max(l, d); r = Math.max(r, a);
+      // drawVertical centers the rotated glyph's ink on the column center, so
+      // its horizontal extent is half the ink height on each side.
+      const half = (a + d) / 2;
+      l = Math.max(l, half); r = Math.max(r, half);
     } else {
       l = Math.max(l, (m.actualBoundingBoxLeft !== undefined) ? m.actualBoundingBoxLeft : px / 2);
       r = Math.max(r, (m.actualBoundingBoxRight !== undefined) ? m.actualBoundingBoxRight : px / 2);
