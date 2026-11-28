@@ -327,7 +327,7 @@ const LAYOUT = {
   "l-kihon": {
     lshape: true,
     vText: { color:"#231f20", topY:188, nameCx:218, titleCx:110, namePx:120, titlePx:58 },
-    bandText: { color:"#ffffff", x0:285, x1:1638, y0:923, y1:1080 }
+    bandText: { color:"#ffffff", x0:285, x1:1638, y0:923, y1:1080, dy:9 }
   },
   "l-snow": {
     lshape: true,
@@ -337,12 +337,12 @@ const LAYOUT = {
   "l-cha": {
     lshape: true,
     vText: { color:"#ffffff", topY:188, nameCx:216, titleCx:109, namePx:120, titlePx:58 },
-    bandText: { color:"#ffffff", x0:283, x1:1710, y0:921, y1:1080 }
+    bandText: { color:"#ffffff", x0:283, x1:1710, y0:921, y1:1080, dy:9 }
   },
   "l-hokuo": {
     lshape: true,
     vText: { color:"#231f20", topY:167, nameCx:197, titleCx:100, namePx:120, titlePx:58, bandR:259 },
-    bandText: { color:"#231f20", x0:283, x1:1797, y0:946, y1:1080 }
+    bandText: { color:"#231f20", x0:283, x1:1797, y0:946, y1:1080, dy:9 }
   }
 };
 const FOOTER_COLOR = "#0a3d75";
@@ -635,7 +635,25 @@ function drawLText(lay){
     octx.fillStyle = a.color;
     octx.textAlign = "center";
     octx.textBaseline = "middle";
-    octx.fillText(t, (a.x0 + a.x1) / 2, (a.y0 + a.y1) / 2);
+    let cy = (a.y0 + a.y1) / 2;
+    if (a.dy) {
+      // Some L designs (all but snow) place the band text a little lower than the
+      // band center (layout dy, user request). The shift is clamped so the ink
+      // always stays inside the band: containment wins over the offset. Ink
+      // offsets are measured against the "middle"-baseline fill point, so the
+      // unclamped result is the old rendering translated down by exactly dy.
+      // For hokuo the band area starts below the teal line (a.y0), so the top
+      // clamp also keeps the ink from ever crossing above that line.
+      const m = octx.measureText(t);
+      const A = (m.actualBoundingBoxAscent !== undefined) ? m.actualBoundingBoxAscent : px * 0.9;
+      const D = (m.actualBoundingBoxDescent !== undefined) ? m.actualBoundingBoxDescent : px * 0.15;
+      const mid = ((m.fontBoundingBoxAscent !== undefined) && (m.fontBoundingBoxDescent !== undefined))
+        ? (m.fontBoundingBoxAscent - m.fontBoundingBoxDescent) / 2 : (A - D) / 2;
+      let shift = Math.min(a.dy, a.y1 - (cy + mid + D));
+      shift = Math.max(shift, a.y0 - (cy + mid - A));
+      cy += shift;
+    }
+    octx.fillText(t, (a.x0 + a.x1) / 2, cy);
   }
 }
 
